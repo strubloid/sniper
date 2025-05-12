@@ -1,0 +1,1 @@
+Shade sprite simulated with color (200, 0, 200)

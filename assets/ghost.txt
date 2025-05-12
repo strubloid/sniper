@@ -1,0 +1,1 @@
+Ghost sprite simulated with color (150, 150, 255)
