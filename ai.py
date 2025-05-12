@@ -1,10 +1,9 @@
 """
 AI module for the Sniper Game.
-This module handles AI movement, decision-making, and actions using advanced algorithms.
+This module handles AI movement, decision-making, and actions using better sniper tactics.
 """
 import pygame
 import random
-import heapq
 import math
 from typing import List, Tuple, Optional, Dict, Set
 
@@ -13,7 +12,7 @@ from models import Character, Projectile
 
 
 class AI:
-    """Handles AI logic for enemy characters with advanced pathfinding and decision making."""
+    """Handles AI logic for enemy characters with smart pathfinding and decision making."""
 
     @staticmethod
     def take_turn(
@@ -24,392 +23,420 @@ class AI:
             projectiles: List[Projectile],
             redraw_callback
     ) -> str:
+        print("AI.take_turn called")
         """
-        Execute AI's turn with tactical decision making and animations.
-        Returns the current AI state.
+        Execute AI's turn with sniper tactics:
+        1. Attack if player is in line of sight
+        2. Move to get closer to player while staying in cover
+        3. Avoid taking too much damage from movement
         """
-        # Calculate direction to player
-        dx, dy = player.x - enemy.x, player.y - enemy.y
-        distance_to_player = abs(dx) + abs(dy)
-        
-        # Initialize AI state
+        # Ensure enemy stats are reset for this turn
+        enemy.start_turn()
+        # Initialize AI state and show thinking
         ai_state = const.AI_STATE_THINKING
-        redraw_callback()  # Show the THINKING state in the debug display
-        pygame.time.delay(const.AI_AIMING_DELAY)
+        redraw_callback()
+        pygame.time.delay(300)  # Short thinking delay
         
-        # Track if any actions were taken
-        action_taken = False
-        
-        # Tactical decision: determine whether to shoot or move first
-        should_shoot_first = AI._should_shoot_first(enemy, player, obstacles)
+        try:
+            print("--- AI Turn Start ---")
+            print(f"Enemy at ({enemy.x}, {enemy.y}), Player at ({player.x}, {player.y})")
+            print(f"Moves left: {enemy.moves_left}, Shots left: {enemy.shots_left}")
+            
+            # PRIORITY 1: SHOOT IF PLAYER IS IN LINE OF SIGHT
+            print("Phase 1: Checking line of sight for initial shot")
+            if enemy.shots_left > 0:
+                can_shoot = AI._has_line_of_fire(enemy, player, obstacles)
+                print(f"  Can shoot initial: {can_shoot}")
+                if can_shoot:
+                    print("  -> Taking initial shot")
+                    ai_state = const.AI_STATE_SHOOTING
+                    redraw_callback()
+                    pygame.time.delay(300)
 
-        # SHOOTING PHASE - if we decide to shoot first
-        if should_shoot_first and enemy.shots_left > 0:
-            # Update AI state to SHOOTING before taking the shot
-            ai_state = const.AI_STATE_SHOOTING
-            redraw_callback()  # Update the UI to show SHOOTING state
-            
-            shot_taken = AI._handle_shooting(enemy, player, obstacles, projectiles, redraw_callback)
-            if shot_taken:
-                action_taken = True
+                    AI._execute_shot(enemy, player, projectiles)
+                    redraw_callback()
+                    pygame.time.delay(400)
+            else:
+                print("  No shots available for initial phase")
 
-        # MOVEMENT PHASE - if we didn't shoot or need to reposition
-        if enemy.moves_left > 0:
-            # Update AI state to AIMING (which represents movement planning)
-            ai_state = const.AI_STATE_AIMING
-            redraw_callback()  # Update the UI to show AIMING state
-            pygame.time.delay(const.AI_AIMING_DELAY // 2)  # Short delay for state change
-            
-            # Determine best tactical position
-            target_position = AI._determine_best_position(enemy, player, obstacles)
-            
-            if target_position and target_position != (enemy.x, enemy.y):
-                # Use A* to find optimal path
-                path = AI._astar_pathfinding(
-                    (enemy.x, enemy.y), 
-                    target_position, 
-                    obstacles + [(player.x, player.y)],
-                    enemy.moves_left
-                )
-                
-                if path:
-                    # Execute movement with animation
-                    AI._animate_movement(enemy, path, redraw_callback)
-                    action_taken = True
-        
-        # SHOOTING PHASE (after movement) - if we didn't shoot earlier
-        if not should_shoot_first and enemy.shots_left > 0:
-            # Update AI state to SHOOTING before taking the shot
-            ai_state = const.AI_STATE_SHOOTING
-            redraw_callback()  # Update the UI to show SHOOTING state
-            
-            shot_taken = AI._handle_shooting(enemy, player, obstacles, projectiles, redraw_callback)
-            if shot_taken:
-                action_taken = True
-
-        # If no action was taken, attempt a random move as fallback
-        if not action_taken and enemy.moves_left > 0:
-            possible_moves = AI._calculate_possible_moves(enemy, player, obstacles, 1)  # Just try to move 1 space
-            if possible_moves:
-                # Choose a random move
-                new_pos = random.choice(possible_moves)
-                
-                # Update AI state to show we're making a desperation move
+            # PRIORITY 2: FIND COVER NEAR PLAYER
+            print("Phase 2: Movement/Tactical repositioning")
+            if enemy.moves_left > 0:
+                print("  Moves available, finding best tactical position")
                 ai_state = const.AI_STATE_AIMING
                 redraw_callback()
-                pygame.time.delay(const.AI_AIMING_DELAY // 2)
-                
-                # Move to the position
-                enemy.x, enemy.y = new_pos
-                enemy.moves_left -= 1
-                
-                # Redraw after movement
-                redraw_callback()
-                pygame.time.delay(const.ANIMATION_DELAY)
-                action_taken = True
+                pygame.time.delay(300)
 
-        # End turn
-        ai_state = const.AI_STATE_END
-        redraw_callback()  # Show the END state in the debug display
-        pygame.time.delay(const.AI_END_TURN_DELAY)
+                best_move = AI._find_best_tactical_position(enemy, player, obstacles, enemy.moves_left)
+                if best_move:
+                    new_pos, path = best_move
+                    print(f"  Best tactical move: {new_pos} via {path}")
+                    AI._execute_movement(enemy, path, redraw_callback)
+                else:
+                    print("  No tactical position found, trying simple tactical move")
+                    moved = AI._make_simple_tactical_move(enemy, player, obstacles, redraw_callback)
+                    if not moved:
+                        print("  No simple tactical move made")
+            else:
+                print("  No moves left for movement phase")
+
+            # PRIORITY 3: SHOOT AFTER REPOSITIONING
+            print("Phase 3: Checking line of sight after movement")
+            if enemy.shots_left > 0:
+                can_shoot2 = AI._has_line_of_fire(enemy, player, obstacles)
+                print(f"  Can shoot after move: {can_shoot2}")
+                if can_shoot2:
+                    print("  -> Taking post-move shot")
+                    ai_state = const.AI_STATE_SHOOTING
+                    redraw_callback()
+                    pygame.time.delay(300)
+
+                    AI._execute_shot(enemy, player, projectiles)
+                    redraw_callback()
+                    pygame.time.delay(400)
+            else:
+                print("  No shots available for post-move phase")
+
+            # End turn
+            print("Phase 4: Ending AI turn")
+            ai_state = const.AI_STATE_END
+            redraw_callback()
+            pygame.time.delay(300)
+            print("--- AI Turn End ---")
+        except Exception as e:
+            print(f"AI Error: {str(e)}")
+            ai_state = const.AI_STATE_END
+        
+        # Reset enemy movement and shots
         enemy.moves_left = 0
         enemy.shots_left = 0
         
         return ai_state
-
+    
     @staticmethod
-    def _should_shoot_first(enemy: Character, player: Character, obstacles: List[Tuple[int, int]]) -> bool:
-        """Decide whether to shoot first or move first based on tactical considerations."""
-        dx, dy = player.x - enemy.x, player.y - enemy.y
+    def _has_line_of_fire(enemy: Character, player: Character, obstacles: List[Tuple[int, int]]) -> bool:
+        print(f"Checking line of fire between Enemy({enemy.x},{enemy.y}) and Player({player.x},{player.y})")
+        # Direct hit check - must be in same row or column
+        if enemy.x != player.x and enemy.y != player.y:
+            print("Line of fire result: False")
+            return False
         
-        # If player is in line of sight and path is clear, shoot first
-        if (dx == 0 or dy == 0) and not AI._is_path_blocked(enemy.x, enemy.y, player.x, player.y, obstacles):
-            return True
-            
-        # If player is adjacent, definitely shoot first
-        if abs(dx) + abs(dy) == 1:
-            return True
-            
-        # If low on health, prioritize shooting to deal damage
-        if enemy.health < enemy.max_health * 0.3:
-            return True
-            
-        # Otherwise, move first for better positioning
-        return False
-
+        # Check for obstacles in between
+        if enemy.x == player.x:  # Same column
+            start_y, end_y = min(enemy.y, player.y), max(enemy.y, player.y)
+            for y in range(start_y + 1, end_y):
+                if (enemy.x, y) in obstacles:
+                    print("Line of fire result: False")
+                    return False
+        else:  # Same row
+            start_x, end_x = min(enemy.x, player.x), max(enemy.x, player.x)
+            for x in range(start_x + 1, end_x):
+                if (x, enemy.y) in obstacles:
+                    print("Line of fire result: False")
+                    return False
+        
+        # If we reach here, there's a clear line of fire
+        print("Line of fire result: True")
+        return True
+    
     @staticmethod
-    def _handle_shooting(
-            enemy: Character, 
-            player: Character, 
-            obstacles: List[Tuple[int, int]], 
-            projectiles: List[Projectile],
-            redraw_callback
-    ) -> bool:
-        """Handle AI shooting logic with improved targeting."""
-        dx, dy = player.x - enemy.x, player.y - enemy.y
-        shot_taken = False
+    def _execute_shot(enemy: Character, player: Character, projectiles: List[Projectile]) -> bool:
+        """Execute a shot at the player."""
+        # Calculate direction vector
+        dx, dy = 0, 0
         
-        # Line of sight shooting (same row or column)
-        if (dx == 0 or dy == 0) and not AI._is_path_blocked(enemy.x, enemy.y, player.x, player.y, obstacles):
-            pygame.time.delay(const.AI_SHOOTING_DELAY)
-            
-            # Determine shooting direction
-            shoot_dx, shoot_dy = 0, 0
-            if dx == 0:  # Same column
-                shoot_dy = 1 if dy > 0 else -1
-            else:  # Same row
-                shoot_dx = 1 if dx > 0 else -1
-            
-            # Create projectile
+        if enemy.x == player.x:  # Same column
+            dy = 1 if player.y > enemy.y else -1
+        elif enemy.y == player.y:  # Same row
+            dx = 1 if player.x > enemy.x else -1
+        
+        # Create projectile
+        if dx != 0 or dy != 0:
+            print(f"AI SHOOTING in direction ({dx}, {dy}) from ({enemy.x}, {enemy.y})")
             projectiles.append(
                 Projectile(
-                    enemy.x, enemy.y, shoot_dx, shoot_dy, 
+                    enemy.x, enemy.y, dx, dy, 
                     enemy.sniper_type.color, enemy
                 )
             )
             enemy.shots_left -= 1
-            shot_taken = True
-            
-            # After shooting, redraw
-            redraw_callback()
-            pygame.time.delay(const.AI_SHOOTING_DELAY)
-            
-        # Adjacent shooting
-        elif abs(dx) + abs(dy) == 1 and enemy.shots_left > 0:
-            pygame.time.delay(const.AI_SHOOTING_DELAY)
-            player.health -= const.PROJECTILE_DAMAGE
-            enemy.shots_left -= 1
-            shot_taken = True
-            
-        return shot_taken
-
-    @staticmethod
-    def _determine_best_position(
-            enemy: Character, 
-            player: Character, 
-            obstacles: List[Tuple[int, int]]
-    ) -> Optional[Tuple[int, int]]:
-        """
-        Determine the best tactical position for the AI to move to,
-        considering both offensive and defensive factors.
-        """
-        # Get all possible moves within range
-        possible_moves = AI._calculate_possible_moves(enemy, player, obstacles, enemy.moves_left)
-        if not possible_moves:
-            return None
-            
-        # Score each position based on tactical value
-        move_scores = {}
-        for pos in possible_moves:
-            score = 0
-            pos_x, pos_y = pos
-            
-            # Distance to player (closer is usually better but not too close)
-            distance = abs(pos_x - player.x) + abs(pos_y - player.y)
-            
-            # Prefer positions where we can shoot the player
-            if (pos_x == player.x or pos_y == player.y) and not AI._is_path_blocked(
-                    pos_x, pos_y, player.x, player.y, obstacles):
-                score += 50  # Strong bonus for shooting positions
-            
-            # Prefer positions with medium distance (not too close, not too far)
-            if 2 <= distance <= 3:
-                score += 30
-            elif distance == 1:
-                score += 10  # Being adjacent is okay but risky
-            else:
-                score += max(0, 20 - (distance - 3) * 5)  # Diminishing returns for distances > 3
-            
-            # Prefer positions near cover (adjacent to obstacles)
-            cover_score = sum(1 for ox, oy in obstacles if abs(ox - pos_x) + abs(oy - pos_y) == 1)
-            score += cover_score * 10
-            
-            # Avoid dead ends (positions with limited exits)
-            exit_count = sum(1 for dx, dy in [(0,1), (1,0), (0,-1), (-1,0)] 
-                            if (pos_x + dx, pos_y + dy) not in obstacles 
-                            and 0 <= pos_x + dx < const.GRID_WIDTH 
-                            and 0 <= pos_y + dy < const.GRID_HEIGHT)
-            if exit_count <= 1:
-                score -= 40  # Heavy penalty for positions with only 0-1 exits
-            
-            move_scores[pos] = score
+            return True
         
-        # Return the position with the highest score
-        if move_scores:
-            return max(move_scores.items(), key=lambda x: x[1])[0]
+        print("Failed to shoot - no direction calculated")
+        return False
+    
+    @staticmethod
+    def _find_best_tactical_position(enemy: Character, player: Character, 
+                                    obstacles: List[Tuple[int, int]], max_moves: int) -> Optional[Tuple[Tuple[int, int], List[Tuple[int, int]]]]:
+        print(f"Finding tactical positions within {max_moves} moves from ({enemy.x},{enemy.y})")
+        # Generate list of all possible positions within movement range
+        possible_positions = []
+        for x in range(max(0, enemy.x - max_moves), min(const.GRID_WIDTH, enemy.x + max_moves + 1)):
+            for y in range(max(0, enemy.y - max_moves), min(const.GRID_HEIGHT, enemy.y + max_moves + 1)):
+                # Skip obstacles and player position
+                if (x, y) in obstacles or (x, y) == (player.x, player.y):
+                    continue
+                
+                # Skip current position
+                if (x, y) == (enemy.x, enemy.y):
+                    continue
+                
+                # Check if position is theoretically reachable
+                manhattan_dist = abs(x - enemy.x) + abs(y - enemy.y)
+                if manhattan_dist <= max_moves:
+                    # We'll verify actual path length later
+                    possible_positions.append((x, y))
+        
+        # Score and sort positions
+        position_scores = {}
+        for pos in possible_positions:
+            # Get a path to this position
+            path = AI._find_path((enemy.x, enemy.y), pos, obstacles, player)
+            
+            # Skip if no path or too far
+            if not path or len(path) > max_moves:
+                continue
+            
+            # Score the position
+            score = AI._score_tactical_position(enemy, player, pos, obstacles, len(path))
+            position_scores[pos] = (score, path)
+            
+        # Find best position
+        if position_scores:
+            best_pos = max(position_scores.items(), key=lambda x: x[1][0])[0]
+            best_score, best_path = position_scores[best_pos]
+            print(f"Best position: {best_pos} Score: {best_score} Path: {best_path}")
+            return best_pos, best_path
+        
+        print("No tactical positions available")
         return None
-
+    
     @staticmethod
-    def _calculate_possible_moves(
-            enemy: Character, 
-            player: Character, 
-            obstacles: List[Tuple[int, int]], 
-            move_limit: int
-    ) -> List[Tuple[int, int]]:
-        """Calculate all possible positions the AI can move to."""
-        possible_moves = []
-        for mx in range(-move_limit, move_limit + 1):
-            for my in range(-move_limit, move_limit + 1):
-                if abs(mx) + abs(my) <= move_limit:  # Include current position
-                    new_x, new_y = enemy.x + mx, enemy.y + my
-                    if 0 <= new_x < const.GRID_WIDTH and 0 <= new_y < const.GRID_HEIGHT:
-                        if (new_x, new_y) not in obstacles and (new_x, new_y) != (player.x, player.y):
-                            possible_moves.append((new_x, new_y))
-        return possible_moves
-
-    @staticmethod
-    def _astar_pathfinding(
-            start: Tuple[int, int],
-            goal: Tuple[int, int],
-            obstacles: List[Tuple[int, int]],
-            move_limit: int
-    ) -> List[Tuple[int, int]]:
+    def _score_tactical_position(enemy: Character, player: Character, 
+                                position: Tuple[int, int], obstacles: List[Tuple[int, int]], 
+                                path_length: int) -> float:
         """
-        A* pathfinding algorithm to find the optimal path from start to goal,
-        avoiding obstacles and respecting the move limit.
+        Score a potential position based on tactical considerations:
+        - Line of sight to player (good for shooting)
+        - Cover nearby (good for defense)
+        - Not taking too much damage from movement
+        - Optimal distance from player
         """
-        # If start and goal are the same, return empty path
-        if start == goal:
-            return []
-            
-        # Convert obstacles to a set for faster lookups
-        obstacles_set = set(obstacles)
+        score = 0
+        x, y = position
         
-        # Initialize the open and closed sets
-        open_set = []
+        # FACTOR 1: Can we shoot the player from here?
+        if x == player.x or y == player.y:
+            # Check if path would be clear
+            would_have_shot = True
+            
+            if x == player.x:  # Same column
+                start_y, end_y = min(y, player.y), max(y, player.y)
+                for check_y in range(start_y + 1, end_y):
+                    if (x, check_y) in obstacles:
+                        would_have_shot = False
+                        break
+            else:  # Same row
+                start_x, end_x = min(x, player.x), max(x, player.x)
+                for check_x in range(start_x + 1, end_x):
+                    if (check_x, y) in obstacles:
+                        would_have_shot = False
+                        break
+            
+            if would_have_shot:
+                score += 100  # Very high priority to get a shot
+        
+        # FACTOR 2: Is there cover nearby?
+        cover_count = 0
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            if (x + dx, y + dy) in obstacles:
+                cover_count += 1
+        
+        score += cover_count * 15  # Good bonus for each piece of nearby cover
+        
+        # FACTOR 3: Avoid health penalties from excessive movement
+        # Each move costs health, so penalize long paths
+        health_penalty = path_length * const.HEALTH_DAMAGE_PER_MOVE
+        max_allowed_penalty = enemy.health * 0.3  # Don't lose more than 30% health
+        
+        if health_penalty > max_allowed_penalty:
+            score -= 50  # Heavy penalty for dangerous moves
+        else:
+            # Small penalty proportional to damage taken
+            score -= health_penalty * 0.5
+        
+        # FACTOR 4: Distance from player
+        dist_to_player = abs(x - player.x) + abs(y - player.y)
+        
+        # Prefer medium distances - not too close, not too far
+        if 2 <= dist_to_player <= 3:
+            score += 30  # Optimal firing range
+        elif dist_to_player <= 1:
+            score -= 20  # Too close is dangerous
+        else:
+            score += max(0, 25 - (dist_to_player - 3) * 5)  # Diminishing returns
+            
+        # Small random factor for variety
+        score += random.uniform(-5, 5)
+        
+        return score
+    
+    @staticmethod
+    def _find_path(start: Tuple[int, int], end: Tuple[int, int], 
+                  obstacles: List[Tuple[int, int]], player: Character) -> List[Tuple[int, int]]:
+        """
+        Find a path from start to end, avoiding obstacles and player.
+        Uses a simple A* implementation.
+        """
+        # Convert obstacles to a set for faster lookup
+        obstacles_set = set(obstacles + [(player.x, player.y)])
+        
+        # A* algorithm implementation
+        open_set = {start}
         closed_set = set()
         
-        # Cost from start to current node
-        g_score = {start: 0}
-        
-        # Estimated total cost from start to goal through this node
-        f_score = {start: AI._heuristic(start, goal)}
-        
-        # Use heapq to manage the priority queue
-        heapq.heappush(open_set, (f_score[start], start))
-        
-        # For path reconstruction
+        # Track path and costs
         came_from = {}
+        g_score = {start: 0}  # Cost from start to current node
+        f_score = {start: AI._manhattan_distance(start, end)}  # Estimated total cost
         
-        # Avoid infinite loops with a counter
-        max_iterations = 1000  # Set a reasonable limit
-        iteration_count = 0
-        
-        while open_set and iteration_count < max_iterations:
-            iteration_count += 1
+        while open_set:
+            # Find node with lowest f_score
+            current = min(open_set, key=lambda pos: f_score.get(pos, float('inf')))
             
-            # Get the node with the lowest f_score
-            try:
-                _, current = heapq.heappop(open_set)
-            except IndexError:
-                break  # Safety check if heapq is empty
-            
-            # If we've reached the goal, reconstruct path
-            if current == goal:
+            # Goal check
+            if current == end:
+                # Reconstruct path
                 path = []
                 while current in came_from:
                     path.append(current)
                     current = came_from[current]
-                return path[::-1]  # Reverse the path
-                
-            # Mark as visited
+                return path[::-1]  # Reverse to get start-to-end
+            
+            # Process current node
+            open_set.remove(current)
             closed_set.add(current)
             
-            # Check if we've exceeded move limit
-            if g_score[current] >= move_limit:
-                continue
-                
-            # Check all valid neighbor tiles
+            # Check neighbors
             for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
                 neighbor = (current[0] + dx, current[1] + dy)
                 
-                # Skip if out of bounds
+                # Skip invalid positions
                 if (neighbor[0] < 0 or neighbor[0] >= const.GRID_WIDTH or
-                    neighbor[1] < 0 or neighbor[1] >= const.GRID_HEIGHT):
+                    neighbor[1] < 0 or neighbor[1] >= const.GRID_HEIGHT or
+                    neighbor in obstacles_set or neighbor in closed_set):
                     continue
                 
-                # Skip if obstacle or already visited    
-                if neighbor in obstacles_set or neighbor in closed_set:
-                    continue
-                    
-                # Calculate new g_score
-                tentative_g_score = g_score[current] + 1
+                # Calculate scores
+                tentative_g = g_score[current] + 1
                 
-                # Skip if exceeds move limit
-                if tentative_g_score > move_limit:
-                    continue
-                
-                # If neighbor not in open set or this path is better
-                if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
+                # Add to open set if not there, or if we found a better path
+                if neighbor not in open_set or tentative_g < g_score.get(neighbor, float('inf')):
                     came_from[neighbor] = current
-                    g_score[neighbor] = tentative_g_score
-                    f_score[neighbor] = tentative_g_score + AI._heuristic(neighbor, goal)
-                    
-                    # Add to open set if not already there
-                    if not any(node == neighbor for _, node in open_set):
-                        heapq.heappush(open_set, (f_score[neighbor], neighbor))
+                    g_score[neighbor] = tentative_g
+                    f_score[neighbor] = tentative_g + AI._manhattan_distance(neighbor, end)
+                    if neighbor not in open_set:
+                        open_set.add(neighbor)
         
-        # If no path is found, return best partial path
-        if came_from:
-            # Find the closest we got to the goal
-            closest = min(came_from.keys(), key=lambda x: AI._heuristic(x, goal))
-            path = []
-            current = closest
-            while current in came_from:
-                path.append(current)
-                current = came_from[current]
-            return path[::-1]  # Reverse the path
-        
-        return []  # No path found at all
-
+        # No path found
+        print("No path found")
+        return []
+    
     @staticmethod
-    def _heuristic(a: Tuple[int, int], b: Tuple[int, int]) -> int:
-        """Manhattan distance heuristic for A* algorithm."""
-        return abs(b[0] - a[0]) + abs(b[1] - a[1])
-
+    def _manhattan_distance(a: Tuple[int, int], b: Tuple[int, int]) -> int:
+        """Calculate Manhattan distance between two points."""
+        return abs(a[0] - b[0]) + abs(a[1] - b[1])
+    
     @staticmethod
-    def _animate_movement(enemy: Character, path: List[Tuple[int, int]], redraw_callback) -> None:
-        """Animate enemy movement along a path."""
-        distance_moved = 0
+    def _execute_movement(enemy: Character, path: List[Tuple[int, int]], redraw_callback) -> None:
+        """Move the enemy along a path with animation."""
+        print(f"Executing movement along path: {path}")
+        # Track how far we've moved
+        moves_used = 0
         
-        for path_x, path_y in path:
-            # Calculate distance of this step
-            step_distance = abs(path_x - enemy.x) + abs(path_y - enemy.y)
-            
-            # Check if this step would exceed the move limit
-            if distance_moved + step_distance > enemy.moves_left:
+        for pos in path:
+            # Check if we still have moves left
+            if moves_used >= enemy.moves_left:
                 break
                 
-            # Move one tile at a time
-            enemy.x, enemy.y = path_x, path_y
-            distance_moved += step_distance
+            # Update position and count moves
+            old_x, old_y = enemy.x, enemy.y
+            enemy.x, enemy.y = pos
+            moves_used += 1
             
-            # Redraw the screen to show movement
+            # Visual feedback
+            print(f"AI moving to ({enemy.x}, {enemy.y}), moves left: {enemy.moves_left - moves_used}")
             redraw_callback()
-            
-            # Delay between each tile movement
-            pygame.time.delay(const.ANIMATION_DELAY)
+            pygame.time.delay(200)
         
-        # Update remaining moves
-        enemy.moves_left -= distance_moved
-
+        # Update the actual moves counter
+        enemy.moves_left -= moves_used
+    
     @staticmethod
-    def _is_path_blocked(
-            x1: int, 
-            y1: int, 
-            x2: int, 
-            y2: int, 
-            obstacles: List[Tuple[int, int]]
-    ) -> bool:
-        """Check if there's an obstacle between two points."""
-        # If not in the same row or column, path is not straight
-        if x1 != x2 and y1 != y2:
-            return True
+    def _make_simple_tactical_move(enemy: Character, player: Character, 
+                                 obstacles: List[Tuple[int, int]], redraw_callback) -> bool:
+        print("Trying simple tactical move")
+        if enemy.moves_left <= 0:
+            print("No moves left for simple tactical move")
+            return False
             
-        # Check for obstacles in path
-        if x1 == x2:  # Same column
-            start, end = min(y1, y2), max(y1, y2)
-            return any((x1, y) in obstacles for y in range(start + 1, end))
-        else:  # Same row
-            start, end = min(x1, x2), max(x1, x2)
-            return any((x, y1) in obstacles for x in range(start + 1, end))
+        # Check all adjacent squares
+        best_pos = None
+        best_score = -float('inf')
+        
+        for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            x, y = enemy.x + dx, enemy.y + dy
+            
+            # Skip invalid positions
+            if (x < 0 or x >= const.GRID_WIDTH or
+                y < 0 or y >= const.GRID_HEIGHT or
+                (x, y) in obstacles or (x, y) == (player.x, player.y)):
+                continue
+            
+            # Score this position
+            score = 0
+            
+            # Check if we can shoot from here
+            can_shoot = False
+            if x == player.x or y == player.y:
+                # Check line of sight
+                if x == player.x:  # Same column
+                    start_y, end_y = min(y, player.y), max(y, player.y)
+                    if all((x, check_y) not in obstacles for check_y in range(start_y + 1, end_y)):
+                        can_shoot = True
+                else:  # Same row
+                    start_x, end_x = min(x, player.x), max(x, player.x)
+                    if all((check_x, y) not in obstacles for check_x in range(start_x + 1, end_x)):
+                        can_shoot = True
+                
+                if can_shoot:
+                    score += 50  # Big bonus for shooting position
+            
+            # Cover bonus
+            cover = sum(1 for cover_dx, cover_dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]
+                      if (x + cover_dx, y + cover_dy) in obstacles)
+            score += cover * 10
+            
+            # Distance factor - prefer medium distance
+            dist = abs(x - player.x) + abs(y - player.y)
+            if 2 <= dist <= 3:
+                score += 20
+            elif dist == 1:
+                score -= 10  # Too close!
+            
+            if score > best_score:
+                best_score = score
+                best_pos = (x, y)
+        
+        # Make the move if we found one
+        if best_pos:
+            print(f"Simple tactical move chosen: {best_pos}")
+            enemy.x, enemy.y = best_pos
+            enemy.moves_left -= 1
+            print(f"AI made tactical move to ({enemy.x}, {enemy.y})")
+            redraw_callback()
+            pygame.time.delay(200)
+            return True
+        
+        print("No simple tactical move found")
+        return False

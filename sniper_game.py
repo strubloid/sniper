@@ -260,15 +260,22 @@ class GameManager:
                     self.end_game("AI")
 
     def enemy_turn(self) -> None:
+        print("GameManager.enemy_turn called. player_turn=", self.player_turn)
+        print(f"Enemy stats before turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
         """Execute the enemy's turn using AI."""
         if not self.ai_turn_started:
+            print("Initializing AI turn start")
             self.ai_turn_started = True
             self.ai_turn_time = pygame.time.get_ticks()
             # Reset AI state at the beginning of each turn
             self.ai_state = const.AI_STATE_THINKING
+            # Initialize enemy's turn stats so AI has moves and shots
+            self.enemy.start_turn()
+            print(f"Enemy stats after start_turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
         
         current_time = pygame.time.get_ticks()
         if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
+            print("AI turn delay passed, calling AI.take_turn")
             self.ai_state = AI.take_turn(
                 self.screen,
                 self.enemy, 
@@ -277,6 +284,7 @@ class GameManager:
                 self.projectiles,
                 self._redraw_during_ai_turn
             )
+            print("AI.take_turn returned state=", self.ai_state)
             
             # Start the player's turn again
             self.player_turn = True
