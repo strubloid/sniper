@@ -4,6 +4,7 @@ This module handles drawing the game's user interface components with enhanced s
 """
 import os
 import pygame
+import random
 from typing import List, Tuple, Optional, Dict, Any
 
 import constants as const
@@ -49,32 +50,111 @@ class UI:
         """Draw the game menu with enhanced styling."""
         # Create gradient background
         for y in range(0, const.SCREEN_HEIGHT, 5):
-            color_val = int(20 + (y / const.SCREEN_HEIGHT * 40))
-            pygame.draw.rect(self.screen, (color_val, color_val, color_val + 20), 
+            color_val = int(10 + (y / const.SCREEN_HEIGHT * 20))
+            pygame.draw.rect(self.screen, (color_val, color_val, color_val + 10), 
                            (0, y, const.SCREEN_WIDTH, 5))
         
-        # Add fancy title panel
-        title_panel = pygame.Surface((600, 120), pygame.SRCALPHA)
-        pygame.draw.rect(title_panel, (0, 0, 0, 180), (0, 0, 600, 120), border_radius=15)
-        pygame.draw.rect(title_panel, (255, 215, 0, 200), (0, 0, 600, 120), 3, border_radius=15)
-        self.screen.blit(title_panel, (180, 80))
+        # Add decorative stars for background effect
+        for _ in range(40):
+            x = random.randint(0, const.SCREEN_WIDTH)
+            y = random.randint(0, const.SCREEN_HEIGHT)
+            size = random.randint(1, 3)
+            brightness = random.randint(100, 255)
+            pygame.draw.circle(self.screen, (brightness, brightness, brightness), (x, y), size)
         
-        # Title with shadow effect
-        title_shadow = self.fonts['big'].render("SNIPER GAME", True, (30, 30, 30))
+        # Add fancy title panel - MAKE IT TALLER to include character sprites
+        title_panel_width = 700
+        title_panel_height = 280  # Increased from 180 to 280 to fit characters
+        
+        title_panel = pygame.Surface((title_panel_width, title_panel_height), pygame.SRCALPHA)
+        pygame.draw.rect(title_panel, (0, 0, 30, 220), (0, 0, title_panel_width, title_panel_height), border_radius=20)
+        
+        # Add gold border with glow effect
+        for i in range(4):
+            border_width = 4 - i
+            alpha = 200 - i * 40
+            pygame.draw.rect(title_panel, (255, 215, 0, alpha), 
+                           (i, i, title_panel_width - i*2, title_panel_height - i*2), 
+                           border_width, border_radius=20-i)
+        
+        # Position panel in center
+        panel_x = const.SCREEN_WIDTH//2 - title_panel_width//2
+        panel_y = 50  # Moved up slightly from 60 to 50
+        self.screen.blit(title_panel, (panel_x, panel_y))
+        
+        # Title with shadow and glow effects - KEEP SAME POSITION
+        for i in range(3):
+            offset = 3-i
+            shadow = self.fonts['big'].render("SNIPER GAME", True, (80 + i*40, 80 + i*40, 0))
+            self.screen.blit(shadow, 
+                           (const.SCREEN_WIDTH//2 - shadow.get_width()//2 + offset, 
+                            90 + offset))
+            
         title = self.fonts['big'].render("SNIPER GAME", True, (255, 220, 0))
-        self.screen.blit(title_shadow, (302, 102))
-        self.screen.blit(title, (300, 100))
+        self.screen.blit(title, (const.SCREEN_WIDTH//2 - title.get_width()//2, 90))
         
-        # Add subtitle
+        # Add subtitle with shadow - SAME POSITION
+        subtitle_shadow = self.fonts['normal'].render("TACTICAL ELIMINATION", True, (30, 30, 30))
         subtitle = self.fonts['normal'].render("TACTICAL ELIMINATION", True, (220, 220, 220))
-        self.screen.blit(subtitle, (const.SCREEN_WIDTH//2 - subtitle.get_width()//2, 155))
+        self.screen.blit(subtitle_shadow, 
+                       (const.SCREEN_WIDTH//2 - subtitle.get_width()//2 + 1, 151))
+        self.screen.blit(subtitle, 
+                       (const.SCREEN_WIDTH//2 - subtitle.get_width()//2, 150))
         
-        # Draw menu options with enhanced styling
+        # Character display - MOVED VERTICAL POSITION to be inside the panel
+        char_colors = [(150, 150, 255), (255, 100, 100), (100, 255, 100), (200, 0, 200)]
+        char_names = ["Ghost", "Juggernaut", "Scout", "Shade"]
+        sprite_size = 64
+        
+        # Calculate total width needed for all characters
+        total_width = len(char_names) * (sprite_size + 30)  # 30px spacing between characters
+        start_x = const.SCREEN_WIDTH//2 - total_width//2
+        char_y = 185  # Keep the same y position
+        
+        try:
+            # Try to load individual sprite images with proper presentation
+            for i, (name, color) in enumerate(zip(char_names, char_colors)):
+                char_x = start_x + i * (sprite_size + 30)
+                
+                # Draw character background glow
+                glow_surface = pygame.Surface((sprite_size + 16, sprite_size + 16), pygame.SRCALPHA)
+                for r in range(8, 0, -2):
+                    alpha = 100 - r * 10
+                    pygame.draw.circle(
+                        glow_surface, 
+                        (*color, alpha), 
+                        (sprite_size//2 + 8, sprite_size//2 + 8), 
+                        sprite_size//2 + r
+                    )
+                self.screen.blit(glow_surface, (char_x - 8, char_y - 8))
+                
+                try:
+                    # Try to load sprite image
+                    sprite_path = os.path.join(const.ASSETS_DIR, f"{name.lower()}.png")
+                    sprite = pygame.image.load(sprite_path)
+                    sprite = pygame.transform.scale(sprite, (sprite_size, sprite_size))
+                    self.screen.blit(sprite, (char_x, char_y))
+                except pygame.error:
+                    # Fallback to colored square with border
+                    pygame.draw.rect(self.screen, color, (char_x, char_y, sprite_size, sprite_size))
+                    pygame.draw.rect(self.screen, (255, 255, 255), (char_x, char_y, sprite_size, sprite_size), 2)
+                
+                # Draw character name below sprite
+                name_text = self.fonts['normal'].render(name, True, (200, 200, 255))
+                name_x = char_x + sprite_size//2 - name_text.get_width()//2
+                self.screen.blit(name_text, (name_x, char_y + sprite_size + 5))
+                
+        except Exception as e:
+            print(f"Error displaying character sprites: {e}")
+        
+        # Draw menu options with enhanced styling - MOVED DOWN to account for taller panel
         menu_options = ["Play", "Scoreboard", "Quit"]
         button_rects = []
         
+        first_button_y = 350  # Moved from 320 to 350 to account for taller panel
+        
         for i, option in enumerate(menu_options):
-            button_y = 250 + i * (const.BUTTON_HEIGHT + const.BUTTON_SPACING)
+            button_y = first_button_y + i * (const.BUTTON_HEIGHT + 30)  # More spacing (30px) between buttons
             button_rect = pygame.Rect(
                 const.SCREEN_WIDTH//2 - const.BUTTON_WIDTH//2, 
                 button_y, 
@@ -86,7 +166,7 @@ class UI:
             button_surface = pygame.Surface((const.BUTTON_WIDTH, const.BUTTON_HEIGHT), pygame.SRCALPHA)
             
             # Button background with alpha
-            pygame.draw.rect(button_surface, (40, 40, 60, 200), 
+            pygame.draw.rect(button_surface, (20, 20, 40, 220), 
                            (0, 0, const.BUTTON_WIDTH, const.BUTTON_HEIGHT), border_radius=10)
             
             # Button border glow
@@ -107,11 +187,9 @@ class UI:
             
             button_rects.append((button_rect, option))
         
-        try:
-            banner = pygame.image.load(os.path.join(const.ASSETS_DIR, "title_characters.png"))
-            self.screen.blit(banner, (320, 170))
-        except pygame.error:
-            print("Warning: Could not load title banner image")
+        # Add decorative footer with game version
+        footer = self.fonts['normal'].render("v1.0", True, (150, 150, 180))
+        self.screen.blit(footer, (const.SCREEN_WIDTH - 50, const.SCREEN_HEIGHT - 30))
         
         return button_rects
     
@@ -146,8 +224,8 @@ class UI:
         self.screen.blit(return_text, (300, 400))
     
     def draw_character_select(self, select_stage: str, candidate: Optional[SniperType], 
-                              sniper_types: List[SniperType]) -> List[pygame.Rect]:
-        """Draw character selection screen with enhanced styling."""
+                              sniper_types: List[SniperType], highlight_color=None) -> List[Tuple[Any, str]]:
+        """Draw character selection screen with enhanced styling. Returns a list of clickable elements."""
         # Create gradient background
         for y in range(0, const.SCREEN_HEIGHT, 5):
             color_val = int(20 + (y / const.SCREEN_HEIGHT * 40))
@@ -167,20 +245,27 @@ class UI:
         self.screen.blit(title_shadow, (252, 102))
         self.screen.blit(title_text, (250, 100))
         
-        rects = []
+        # List of clickable elements with their types
+        clickable_elements = []
+        
+        # Draw character options - INCREASING WIDTH BY 80px
         for i, sniper in enumerate(sniper_types):
-            rect = pygame.Rect(120, 160 + i * 65, 400, 55)
+            rect = pygame.Rect(120, 160 + i * 65, 480, 55)  # Increased width from 400 to 480 (+80px)
             
             # Create character panel
-            char_panel = pygame.Surface((400, 55), pygame.SRCALPHA)
+            char_panel = pygame.Surface((480, 55), pygame.SRCALPHA)  # Increased width
             
             # Different highlight for selected candidate
-            if sniper == candidate:
-                pygame.draw.rect(char_panel, (60, 60, 100, 220), (0, 0, 400, 55), border_radius=10)
-                pygame.draw.rect(char_panel, (180, 180, 255, 200), (0, 0, 400, 55), 2, border_radius=10)
+            if sniper == candidate and highlight_color:
+                # Special yellow highlight when requested - MAKING BORDER THICKER
+                pygame.draw.rect(char_panel, (60, 60, 0, 220), (0, 0, 480, 55), border_radius=10)
+                pygame.draw.rect(char_panel, highlight_color + (200,), (0, 0, 480, 55), 5, border_radius=10)  # Increased border from 3 to 5
+            elif sniper == candidate:
+                pygame.draw.rect(char_panel, (60, 60, 100, 220), (0, 0, 480, 55), border_radius=10)
+                pygame.draw.rect(char_panel, (180, 180, 255, 200), (0, 0, 480, 55), 2, border_radius=10)
             else:
-                pygame.draw.rect(char_panel, (40, 40, 70, 180), (0, 0, 400, 55), border_radius=10)
-                pygame.draw.rect(char_panel, (100, 100, 150, 150), (0, 0, 400, 55), 1, border_radius=10)
+                pygame.draw.rect(char_panel, (40, 40, 70, 180), (0, 0, 480, 55), border_radius=10)
+                pygame.draw.rect(char_panel, (100, 100, 150, 150), (0, 0, 480, 55), 1, border_radius=10)
             
             self.screen.blit(char_panel, rect)
             
@@ -190,16 +275,20 @@ class UI:
             self.screen.blit(text_shadow, (rect.x + 11, rect.y + 16))
             self.screen.blit(text, (rect.x + 10, rect.y + 15))
             
-            # Display sprite
+            # Display sprite - moved further right to accommodate wider panel
             sprite = pygame.transform.scale(sniper.sprite, (40, 40))
-            self.screen.blit(sprite, (rect.x + 340, rect.y + 7))
-            rects.append(rect)
+            self.screen.blit(sprite, (rect.x + 420, rect.y + 7))  # Moved from 340 to 420
+            
+            # Add to clickable elements as character selection
+            clickable_elements.append((rect, "character", i))
 
+        # Add the Select button in the details panel if a character is selected
+        select_button_rect = None
         if candidate:
-            # Create detailed info panel
-            detail_panel = pygame.Surface((600, 120), pygame.SRCALPHA)
-            pygame.draw.rect(detail_panel, (40, 40, 80, 200), (0, 0, 600, 120), border_radius=10)
-            pygame.draw.rect(detail_panel, (140, 140, 200, 200), (0, 0, 600, 120), 2, border_radius=10)
+            # Create detailed info panel - WIDER
+            detail_panel = pygame.Surface((680, 130), pygame.SRCALPHA)  # Increased width from 600 to 680 (+80px)
+            pygame.draw.rect(detail_panel, (40, 40, 80, 200), (0, 0, 680, 130), border_radius=10)
+            pygame.draw.rect(detail_panel, (140, 140, 200, 200), (0, 0, 680, 130), 2, border_radius=10)
             self.screen.blit(detail_panel, (120, 400))
             
             # Character info with stats bars
@@ -217,47 +306,141 @@ class UI:
             # Add stat bars for move_limit
             pygame.draw.rect(self.screen, (60, 60, 100), (240, 470, 100, 15))
             pygame.draw.rect(self.screen, (100, 100, 255), (240, 470, candidate.move_limit * 25, 15))
-                
-        return rects
+            
+            # Add "Select" button - BIGGER AND MORE PROMINENT
+            button_width, button_height = 160, 50  # Increased from 120x36 to 160x50
+            select_button_rect = pygame.Rect(
+                600,  # Right side of panel (adjusted)
+                440,  # Vertically centered
+                button_width,
+                button_height
+            )
+            
+            # Draw button with glowing yellow highlight - THICKER BORDER
+            button_surface = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+            pygame.draw.rect(button_surface, (60, 60, 0, 220), (0, 0, button_width, button_height), border_radius=12)
+            pygame.draw.rect(button_surface, (255, 255, 0, 200), (0, 0, button_width, button_height), 4, border_radius=12)  # Border increased to 4px
+            self.screen.blit(button_surface, select_button_rect)
+            
+            # Button text with shadow - LARGER TEXT
+            select_text_shadow = self.fonts['big'].render("SELECT", True, (0, 0, 0))  # Changed from normal to big font
+            select_text = self.fonts['big'].render("SELECT", True, (255, 255, 0))      # Changed from normal to big font
+            
+            # Center text in button
+            text_x = select_button_rect.x + (button_width - select_text.get_width()) // 2
+            text_y = select_button_rect.y + (button_height - select_text.get_height()) // 2
+            self.screen.blit(select_text_shadow, (text_x + 2, text_y + 2))  # Added more shadow offset
+            self.screen.blit(select_text, (text_x, text_y))
+            
+            # Add to clickable elements as a select button
+            clickable_elements.append((select_button_rect, "select_button", None))
+        
+        return clickable_elements
     
-    def draw_confirmation_popup(self) -> Tuple[pygame.Rect, pygame.Rect]:
-        """Draw confirmation popup with Yes/No buttons."""
+    def draw_confirmation_popup(self, selected_character=None) -> Tuple[pygame.Rect, pygame.Rect]:
+        """Draw confirmation popup with Yes/No buttons and character information."""
         # Create semi-transparent overlay
         overlay = pygame.Surface((const.SCREEN_WIDTH, const.SCREEN_HEIGHT), pygame.SRCALPHA)
         overlay.fill((0, 0, 0, 128))
         self.screen.blit(overlay, (0, 0))
         
-        # Create popup panel
-        popup = pygame.Surface((450, 200), pygame.SRCALPHA)
-        pygame.draw.rect(popup, (40, 40, 70, 230), (0, 0, 450, 200), border_radius=15)
-        pygame.draw.rect(popup, (150, 150, 255, 200), (0, 0, 450, 200), 3, border_radius=15)
-        self.screen.blit(popup, (const.SCREEN_WIDTH//2 - 225, const.SCREEN_HEIGHT//2 - 120))
+        # Create popup panel (taller to fit character info)
+        popup_width = 450
+        popup_height = 250
+        popup = pygame.Surface((popup_width, popup_height), pygame.SRCALPHA)
+        pygame.draw.rect(popup, (40, 40, 70, 230), (0, 0, popup_width, popup_height), border_radius=15)
+        pygame.draw.rect(popup, (150, 150, 255, 200), (0, 0, popup_width, popup_height), 3, border_radius=15)
         
-        # Title with shadow
-        txt_shadow = self.fonts['big'].render("Are you sure?", True, (20, 20, 20))
-        txt = self.fonts['big'].render("Are you sure?", True, (220, 220, 30))
-        self.screen.blit(txt_shadow, (const.SCREEN_WIDTH//2 - txt.get_width()//2 + 2, 252))
-        self.screen.blit(txt, (const.SCREEN_WIDTH//2 - txt.get_width()//2, 250))
+        # Position popup in exact center of screen
+        popup_x = const.SCREEN_WIDTH//2 - popup_width//2
+        popup_y = const.SCREEN_HEIGHT//2 - popup_height//2
+        self.screen.blit(popup, (popup_x, popup_y))
         
-        # Yes button
-        yes_rect = pygame.Rect(const.SCREEN_WIDTH//2 - 130, 320, 100, 40)
-        yes_surface = pygame.Surface((100, 40), pygame.SRCALPHA)
-        pygame.draw.rect(yes_surface, (0, 80, 0, 220), (0, 0, 100, 40), border_radius=8)
-        pygame.draw.rect(yes_surface, (100, 255, 100, 200), (0, 0, 100, 40), 2, border_radius=8)
+        # Title with shadow - centered properly
+        if selected_character:
+            title_text = f"Select {selected_character.name}?"
+        else:
+            title_text = "Are you sure?"
+            
+        txt_shadow = self.fonts['big'].render(title_text, True, (20, 20, 20))
+        txt = self.fonts['big'].render(title_text, True, (220, 220, 30))
+        
+        # Center text position calculations
+        txt_x = const.SCREEN_WIDTH//2 - txt.get_width()//2
+        self.screen.blit(txt_shadow, (txt_x + 2, popup_y + 32))
+        self.screen.blit(txt, (txt_x, popup_y + 30))
+        
+        # If we have a character selected, show its details
+        if selected_character:
+            # Character info
+            info_text = f"{selected_character.name}: {selected_character.description}"
+            info_text2 = f"Power: {selected_character.power} | Move Limit: {selected_character.move_limit}"
+            
+            info = self.fonts['normal'].render(info_text, True, (200, 200, 255))
+            info2 = self.fonts['normal'].render(info_text2, True, (200, 200, 255))
+            
+            info_x = const.SCREEN_WIDTH//2 - info.get_width()//2
+            info2_x = const.SCREEN_WIDTH//2 - info2.get_width()//2
+            
+            self.screen.blit(info, (info_x, popup_y + 80))
+            self.screen.blit(info2, (info2_x, popup_y + 110))
+            
+            # Display character sprite
+            try:
+                sprite = pygame.transform.scale(selected_character.sprite, (64, 64))
+                sprite_x = const.SCREEN_WIDTH//2 - 32
+                self.screen.blit(sprite, (sprite_x, popup_y + 130))
+            except:
+                # Fallback if sprite can't be displayed
+                color_rect = pygame.Rect(const.SCREEN_WIDTH//2 - 32, popup_y + 130, 64, 64)
+                pygame.draw.rect(self.screen, selected_character.color, color_rect)
+        
+        # Button vertical position (properly positioned relative to popup)
+        # Make sure buttons are strictly within the popup bounds
+        button_y = popup_y + (popup_height - 60) # Position buttons 60px from bottom of popup
+        button_width = 100
+        button_height = 40
+        button_spacing = 20
+        
+        # Yes button - centered left
+        yes_rect = pygame.Rect(
+            popup_x + (popup_width//2) - button_width - (button_spacing//2), 
+            button_y, 
+            button_width, 
+            button_height
+        )
+        yes_surface = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+        pygame.draw.rect(yes_surface, (0, 80, 0, 220), (0, 0, button_width, button_height), border_radius=8)
+        pygame.draw.rect(yes_surface, (100, 255, 100, 200), (0, 0, button_width, button_height), 2, border_radius=8)
         self.screen.blit(yes_surface, yes_rect)
         
-        # No button
-        no_rect = pygame.Rect(const.SCREEN_WIDTH//2 + 30, 320, 100, 40)
-        no_surface = pygame.Surface((100, 40), pygame.SRCALPHA)
-        pygame.draw.rect(no_surface, (80, 0, 0, 220), (0, 0, 100, 40), border_radius=8)
-        pygame.draw.rect(no_surface, (255, 100, 100, 200), (0, 0, 100, 40), 2, border_radius=8)
+        # No button - centered right
+        no_rect = pygame.Rect(
+            popup_x + (popup_width//2) + (button_spacing//2), 
+            button_y, 
+            button_width, 
+            button_height
+        )
+        no_surface = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
+        pygame.draw.rect(no_surface, (80, 0, 0, 220), (0, 0, button_width, button_height), border_radius=8)
+        pygame.draw.rect(no_surface, (255, 100, 100, 200), (0, 0, button_width, button_height), 2, border_radius=8)
         self.screen.blit(no_surface, no_rect)
         
-        # Button text
+        # Button text - properly centered within buttons
         yes_txt = self.fonts['normal'].render("Yes", True, (220, 255, 220))
         no_txt = self.fonts['normal'].render("No", True, (255, 220, 220))
-        self.screen.blit(yes_txt, (yes_rect.x + 35, yes_rect.y + 10))
-        self.screen.blit(no_txt, (no_rect.x + 40, no_rect.y + 10))
+        
+        yes_txt_x = yes_rect.x + (button_width - yes_txt.get_width()) // 2
+        yes_txt_y = yes_rect.y + (button_height - yes_txt.get_height()) // 2
+        self.screen.blit(yes_txt, (yes_txt_x, yes_txt_y))
+        
+        no_txt_x = no_rect.x + (button_width - no_txt.get_width()) // 2
+        no_txt_y = no_rect.y + (button_height - no_txt.get_height()) // 2
+        self.screen.blit(no_txt, (no_txt_x, no_txt_y))
+        
+        # Debug - Draw button outlines to verify clickable areas
+        # pygame.draw.rect(self.screen, (255, 0, 0), yes_rect, 1)
+        # pygame.draw.rect(self.screen, (255, 0, 0), no_rect, 1)
         
         return yes_rect, no_rect
     

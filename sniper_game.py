@@ -119,7 +119,7 @@ class GameManager:
     def _handle_character_select(self, pos: Tuple[int, int]) -> None:
         """Handle clicks on the character selection screen."""
         if self.show_confirm_popup:
-            yes_rect, no_rect = self.ui.draw_confirmation_popup()
+            yes_rect, no_rect = self.ui.draw_confirmation_popup(self.selected_candidate)
             if yes_rect.collidepoint(pos):
                 if self.character_select_stage == "player":
                     self.player = Character(
@@ -143,15 +143,39 @@ class GameManager:
             elif no_rect.collidepoint(pos):
                 self.show_confirm_popup = False
         else:
-            char_rects = self.ui.draw_character_select(
+            clickable_elements = self.ui.draw_character_select(
                 self.character_select_stage, 
                 self.selected_candidate, 
                 self.sniper_types
             )
-            for i, rect in enumerate(char_rects):
-                if rect.collidepoint(pos):
-                    self.selected_candidate = self.sniper_types[i]
-                    self.show_confirm_popup = True
+            
+            for element, element_type, element_data in clickable_elements:
+                if element.collidepoint(pos):
+                    # Character selection
+                    if element_type == "character":
+                        old_selection = self.selected_candidate
+                        self.selected_candidate = self.sniper_types[element_data]
+                        
+                        # Show selection highlight animation only for new selections
+                        if old_selection != self.selected_candidate:
+                            self._highlight_character_selection()
+                    
+                    # Select button - show confirmation popup
+                    elif element_type == "select_button" and self.selected_candidate:
+                        self.show_confirm_popup = True
+
+    def _highlight_character_selection(self) -> None:
+        """Highlight the selected character with a yellow flash effect."""
+        # Draw the character selection screen with normal highlight
+        self.screen.fill(const.BLACK)
+        char_rects = self.ui.draw_character_select(
+            self.character_select_stage, 
+            self.selected_candidate, 
+            self.sniper_types,
+            highlight_color=(255, 255, 0)  # Yellow highlight
+        )
+        pygame.display.flip()
+        pygame.time.delay(150)  # Flash duration
 
     def _handle_gameplay_click(self, pos: Tuple[int, int], grid_x: int, grid_y: int) -> None:
         """Handle clicks during gameplay."""
@@ -396,7 +420,7 @@ class GameManager:
         # Process game logic
         self.handle_projectile_logic()
         
-        # Draw HUD elements and buttons LAST to ensure they appear on top
+        # Draw HUD elements
         self.ui.draw_hud_grid(self.player, self.enemy)
         self.ui.draw_instructions()
         self.ui.draw_turn_indicator(self.player_turn)
@@ -404,6 +428,10 @@ class GameManager:
         # Draw debug info
         if self.show_debug:
             self.ui.draw_debug_info(self.ai_state)
+        
+        # Draw the End Turn button ABSOLUTELY LAST to ensure it's on top of everything
+        if self.player_turn:
+            self.ui.draw_end_turn_button()
             
         # Automatically handle AI turn if it's not the player's turn
         if not self.player_turn:
