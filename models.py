@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import List, Tuple, Optional
 import pygame
 
-from constants import GRID_SIZE, GRID_WIDTH, GRID_HEIGHT, BLUE
+from constants import GRID_SIZE, GRID_WIDTH, GRID_HEIGHT, BLUE, debug_print
 
 
 @dataclass
@@ -36,7 +36,7 @@ class Character:
 
     def start_turn(self) -> None:
         """Reset character stats for the start of a new turn."""
-        print(f"Character.start_turn: is_player={self.is_player}, position=({self.x},{self.y}), move_limit={self.sniper_type.move_limit}, projectiles_per_turn={self.sniper_type.projectiles_per_turn}")
+        debug_print(f"Character.start_turn: is_player={self.is_player}, position=({self.x},{self.y}), move_limit={self.sniper_type.move_limit}, projectiles_per_turn={self.sniper_type.projectiles_per_turn}")
         self.moves_left = self.sniper_type.move_limit
         self.shots_left = self.sniper_type.projectiles_per_turn
         self.show_range = False

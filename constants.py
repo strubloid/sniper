@@ -61,3 +61,11 @@ BUTTON_WIDTH = 200
 BUTTON_SPACING = 20
 HUD_SPACING = 10
 PROJECTILE_RADIUS = 6
+
+# Debugging control
+DEBUG = 0
+
+def debug_print(*args, **kwargs):
+    """Print debug messages if DEBUG is enabled."""
+    if DEBUG:
+        print(*args, **kwargs)

@@ -13,6 +13,7 @@ from typing import List, Tuple, Dict, Optional, Any
 
 # Import game modules
 import constants as const
+from constants import debug_print
 from models import SniperType, Character, Projectile, Button
 from ui import UI
 from ai import AI
@@ -77,7 +78,7 @@ class GameManager:
                 sprite = pygame.image.load(sprite_path).convert_alpha()
                 sniper_types.append(SniperType(name, sprite, color, desc, limit, power))
             except pygame.error as e:
-                print(f"Error loading sprite for {name}: {e}")
+                debug_print(f"Error loading sprite for {name}: {e}")
         return sniper_types
 
     def start_game(self):
@@ -260,22 +261,22 @@ class GameManager:
                     self.end_game("AI")
 
     def enemy_turn(self) -> None:
-        print("GameManager.enemy_turn called. player_turn=", self.player_turn)
-        print(f"Enemy stats before turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
+        debug_print("GameManager.enemy_turn called. player_turn=", self.player_turn)
+        debug_print(f"Enemy stats before turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
         """Execute the enemy's turn using AI."""
         if not self.ai_turn_started:
-            print("Initializing AI turn start")
+            debug_print("Initializing AI turn start")
             self.ai_turn_started = True
             self.ai_turn_time = pygame.time.get_ticks()
             # Reset AI state at the beginning of each turn
             self.ai_state = const.AI_STATE_THINKING
             # Initialize enemy's turn stats so AI has moves and shots
             self.enemy.start_turn()
-            print(f"Enemy stats after start_turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
+            debug_print(f"Enemy stats after start_turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
         
         current_time = pygame.time.get_ticks()
         if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
-            print("AI turn delay passed, calling AI.take_turn")
+            debug_print("AI turn delay passed, calling AI.take_turn")
             self.ai_state = AI.take_turn(
                 self.screen,
                 self.enemy, 
@@ -284,7 +285,7 @@ class GameManager:
                 self.projectiles,
                 self._redraw_during_ai_turn
             )
-            print("AI.take_turn returned state=", self.ai_state)
+            debug_print("AI.take_turn returned state=", self.ai_state)
             
             # Start the player's turn again
             self.player_turn = True
@@ -455,6 +456,6 @@ if __name__ == "__main__":
         game = GameManager()
         game.run()
     except Exception as e:
-        print(f"Error: {e}")
+        debug_print(f"Error: {e}")
         pygame.quit()
         sys.exit(1)

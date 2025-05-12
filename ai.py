@@ -8,6 +8,7 @@ import math
 from typing import List, Tuple, Optional, Dict, Set
 
 import constants as const
+from constants import debug_print
 from models import Character, Projectile
 
 
@@ -23,7 +24,7 @@ class AI:
             projectiles: List[Projectile],
             redraw_callback
     ) -> str:
-        print("AI.take_turn called")
+        debug_print("AI.take_turn called")
         """
         Execute AI's turn with sniper tactics:
         1. Attack if player is in line of sight
@@ -38,17 +39,17 @@ class AI:
         pygame.time.delay(300)  # Short thinking delay
         
         try:
-            print("--- AI Turn Start ---")
-            print(f"Enemy at ({enemy.x}, {enemy.y}), Player at ({player.x}, {player.y})")
-            print(f"Moves left: {enemy.moves_left}, Shots left: {enemy.shots_left}")
+            debug_print("--- AI Turn Start ---")
+            debug_print(f"Enemy at ({enemy.x}, {enemy.y}), Player at ({player.x}, {player.y})")
+            debug_print(f"Moves left: {enemy.moves_left}, Shots left: {enemy.shots_left}")
             
             # PRIORITY 1: SHOOT IF PLAYER IS IN LINE OF SIGHT
-            print("Phase 1: Checking line of sight for initial shot")
+            debug_print("Phase 1: Checking line of sight for initial shot")
             if enemy.shots_left > 0:
                 can_shoot = AI._has_line_of_fire(enemy, player, obstacles)
-                print(f"  Can shoot initial: {can_shoot}")
+                debug_print(f"  Can shoot initial: {can_shoot}")
                 if can_shoot:
-                    print("  -> Taking initial shot")
+                    debug_print("  -> Taking initial shot")
                     ai_state = const.AI_STATE_SHOOTING
                     redraw_callback()
                     pygame.time.delay(300)
@@ -57,12 +58,12 @@ class AI:
                     redraw_callback()
                     pygame.time.delay(400)
             else:
-                print("  No shots available for initial phase")
+                debug_print("  No shots available for initial phase")
 
             # PRIORITY 2: FIND COVER NEAR PLAYER
-            print("Phase 2: Movement/Tactical repositioning")
+            debug_print("Phase 2: Movement/Tactical repositioning")
             if enemy.moves_left > 0:
-                print("  Moves available, finding best tactical position")
+                debug_print("  Moves available, finding best tactical position")
                 ai_state = const.AI_STATE_AIMING
                 redraw_callback()
                 pygame.time.delay(300)
@@ -70,23 +71,23 @@ class AI:
                 best_move = AI._find_best_tactical_position(enemy, player, obstacles, enemy.moves_left)
                 if best_move:
                     new_pos, path = best_move
-                    print(f"  Best tactical move: {new_pos} via {path}")
+                    debug_print(f"  Best tactical move: {new_pos} via {path}")
                     AI._execute_movement(enemy, path, redraw_callback)
                 else:
-                    print("  No tactical position found, trying simple tactical move")
+                    debug_print("  No tactical position found, trying simple tactical move")
                     moved = AI._make_simple_tactical_move(enemy, player, obstacles, redraw_callback)
                     if not moved:
-                        print("  No simple tactical move made")
+                        debug_print("  No simple tactical move made")
             else:
-                print("  No moves left for movement phase")
+                debug_print("  No moves left for movement phase")
 
             # PRIORITY 3: SHOOT AFTER REPOSITIONING
-            print("Phase 3: Checking line of sight after movement")
+            debug_print("Phase 3: Checking line of sight after movement")
             if enemy.shots_left > 0:
                 can_shoot2 = AI._has_line_of_fire(enemy, player, obstacles)
-                print(f"  Can shoot after move: {can_shoot2}")
+                debug_print(f"  Can shoot after move: {can_shoot2}")
                 if can_shoot2:
-                    print("  -> Taking post-move shot")
+                    debug_print("  -> Taking post-move shot")
                     ai_state = const.AI_STATE_SHOOTING
                     redraw_callback()
                     pygame.time.delay(300)
@@ -95,16 +96,16 @@ class AI:
                     redraw_callback()
                     pygame.time.delay(400)
             else:
-                print("  No shots available for post-move phase")
+                debug_print("  No shots available for post-move phase")
 
             # End turn
-            print("Phase 4: Ending AI turn")
+            debug_print("Phase 4: Ending AI turn")
             ai_state = const.AI_STATE_END
             redraw_callback()
             pygame.time.delay(300)
-            print("--- AI Turn End ---")
+            debug_print("--- AI Turn End ---")
         except Exception as e:
-            print(f"AI Error: {str(e)}")
+            debug_print(f"AI Error: {str(e)}")
             ai_state = const.AI_STATE_END
         
         # Reset enemy movement and shots
@@ -115,10 +116,10 @@ class AI:
     
     @staticmethod
     def _has_line_of_fire(enemy: Character, player: Character, obstacles: List[Tuple[int, int]]) -> bool:
-        print(f"Checking line of fire between Enemy({enemy.x},{enemy.y}) and Player({player.x},{player.y})")
+        debug_print(f"Checking line of fire between Enemy({enemy.x},{enemy.y}) and Player({player.x},{player.y})")
         # Direct hit check - must be in same row or column
         if enemy.x != player.x and enemy.y != player.y:
-            print("Line of fire result: False")
+            debug_print("Line of fire result: False")
             return False
         
         # Check for obstacles in between
@@ -126,17 +127,17 @@ class AI:
             start_y, end_y = min(enemy.y, player.y), max(enemy.y, player.y)
             for y in range(start_y + 1, end_y):
                 if (enemy.x, y) in obstacles:
-                    print("Line of fire result: False")
+                    debug_print("Line of fire result: False")
                     return False
         else:  # Same row
             start_x, end_x = min(enemy.x, player.x), max(enemy.x, player.x)
             for x in range(start_x + 1, end_x):
                 if (x, enemy.y) in obstacles:
-                    print("Line of fire result: False")
+                    debug_print("Line of fire result: False")
                     return False
         
         # If we reach here, there's a clear line of fire
-        print("Line of fire result: True")
+        debug_print("Line of fire result: True")
         return True
     
     @staticmethod
@@ -152,7 +153,7 @@ class AI:
         
         # Create projectile
         if dx != 0 or dy != 0:
-            print(f"AI SHOOTING in direction ({dx}, {dy}) from ({enemy.x}, {enemy.y})")
+            debug_print(f"AI SHOOTING in direction ({dx}, {dy}) from ({enemy.x}, {enemy.y})")
             projectiles.append(
                 Projectile(
                     enemy.x, enemy.y, dx, dy, 
@@ -162,13 +163,13 @@ class AI:
             enemy.shots_left -= 1
             return True
         
-        print("Failed to shoot - no direction calculated")
+        debug_print("Failed to shoot - no direction calculated")
         return False
     
     @staticmethod
     def _find_best_tactical_position(enemy: Character, player: Character, 
                                     obstacles: List[Tuple[int, int]], max_moves: int) -> Optional[Tuple[Tuple[int, int], List[Tuple[int, int]]]]:
-        print(f"Finding tactical positions within {max_moves} moves from ({enemy.x},{enemy.y})")
+        debug_print(f"Finding tactical positions within {max_moves} moves from ({enemy.x},{enemy.y})")
         # Generate list of all possible positions within movement range
         possible_positions = []
         for x in range(max(0, enemy.x - max_moves), min(const.GRID_WIDTH, enemy.x + max_moves + 1)):
@@ -205,10 +206,10 @@ class AI:
         if position_scores:
             best_pos = max(position_scores.items(), key=lambda x: x[1][0])[0]
             best_score, best_path = position_scores[best_pos]
-            print(f"Best position: {best_pos} Score: {best_score} Path: {best_path}")
+            debug_print(f"Best position: {best_pos} Score: {best_score} Path: {best_path}")
             return best_pos, best_path
         
-        print("No tactical positions available")
+        debug_print("No tactical positions available")
         return None
     
     @staticmethod
@@ -339,7 +340,7 @@ class AI:
                         open_set.add(neighbor)
         
         # No path found
-        print("No path found")
+        debug_print("No path found")
         return []
     
     @staticmethod
@@ -350,7 +351,7 @@ class AI:
     @staticmethod
     def _execute_movement(enemy: Character, path: List[Tuple[int, int]], redraw_callback) -> None:
         """Move the enemy along a path with animation."""
-        print(f"Executing movement along path: {path}")
+        debug_print(f"Executing movement along path: {path}")
         # Track how far we've moved
         moves_used = 0
         
@@ -365,7 +366,7 @@ class AI:
             moves_used += 1
             
             # Visual feedback
-            print(f"AI moving to ({enemy.x}, {enemy.y}), moves left: {enemy.moves_left - moves_used}")
+            debug_print(f"AI moving to ({enemy.x}, {enemy.y}), moves left: {enemy.moves_left - moves_used}")
             redraw_callback()
             pygame.time.delay(200)
         
@@ -375,9 +376,9 @@ class AI:
     @staticmethod
     def _make_simple_tactical_move(enemy: Character, player: Character, 
                                  obstacles: List[Tuple[int, int]], redraw_callback) -> bool:
-        print("Trying simple tactical move")
+        debug_print("Trying simple tactical move")
         if enemy.moves_left <= 0:
-            print("No moves left for simple tactical move")
+            debug_print("No moves left for simple tactical move")
             return False
             
         # Check all adjacent squares
@@ -430,13 +431,13 @@ class AI:
         
         # Make the move if we found one
         if best_pos:
-            print(f"Simple tactical move chosen: {best_pos}")
+            debug_print(f"Simple tactical move chosen: {best_pos}")
             enemy.x, enemy.y = best_pos
             enemy.moves_left -= 1
-            print(f"AI made tactical move to ({enemy.x}, {enemy.y})")
+            debug_print(f"AI made tactical move to ({enemy.x}, {enemy.y})")
             redraw_callback()
             pygame.time.delay(200)
             return True
         
-        print("No simple tactical move found")
+        debug_print("No simple tactical move found")
         return False
