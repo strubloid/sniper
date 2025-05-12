@@ -282,14 +282,21 @@ class UI:
             # Add to clickable elements as character selection
             clickable_elements.append((rect, "character", i))
 
+        # Add a clickable background element to allow deselection
+        background_rect = pygame.Rect(0, 0, const.SCREEN_WIDTH, const.SCREEN_HEIGHT)
+        clickable_elements.append((background_rect, "background", None))
+
         # Add the Select button in the details panel if a character is selected
         select_button_rect = None
         if candidate:
-            # Create detailed info panel - WIDER
-            detail_panel = pygame.Surface((680, 130), pygame.SRCALPHA)  # Increased width from 600 to 680 (+80px)
+            # Create detailed info panel - MOVED TO BOTTOM OF SCREEN
+            detail_panel = pygame.Surface((680, 130), pygame.SRCALPHA)
             pygame.draw.rect(detail_panel, (40, 40, 80, 200), (0, 0, 680, 130), border_radius=10)
             pygame.draw.rect(detail_panel, (140, 140, 200, 200), (0, 0, 680, 130), 2, border_radius=10)
-            self.screen.blit(detail_panel, (120, 400))
+            
+            # Position the panel at the bottom of the main panel
+            panel_y = 430  # bottom of main panel (80+500) - 150 for the panel height
+            self.screen.blit(detail_panel, (120, panel_y))
             
             # Character info with stats bars
             info = [
@@ -300,36 +307,36 @@ class UI:
             for i, line in enumerate(info):
                 shadow = self.fonts['normal'].render(line, True, (0, 0, 0))
                 text = self.fonts['normal'].render(line, True, (220, 220, 255))
-                self.screen.blit(shadow, (131, 411 + i * 30))
-                self.screen.blit(text, (130, 410 + i * 30))
+                self.screen.blit(shadow, (131, panel_y + 11 + i * 30))
+                self.screen.blit(text, (130, panel_y + 10 + i * 30))
                 
             # Add stat bars for move_limit
-            pygame.draw.rect(self.screen, (60, 60, 100), (240, 470, 100, 15))
-            pygame.draw.rect(self.screen, (100, 100, 255), (240, 470, candidate.move_limit * 25, 15))
+            pygame.draw.rect(self.screen, (60, 60, 100), (240, panel_y + 70, 100, 15))
+            pygame.draw.rect(self.screen, (100, 100, 255), (240, panel_y + 70, candidate.move_limit * 25, 15))
             
-            # Add "Select" button - BIGGER AND MORE PROMINENT
-            button_width, button_height = 160, 50  # Increased from 120x36 to 160x50
+            # Add "Select" button - positioned within the panel
+            button_width, button_height = 120, 36
             select_button_rect = pygame.Rect(
-                600,  # Right side of panel (adjusted)
-                440,  # Vertically centered
+                640,  # Right side of panel
+                panel_y + 47,  # Vertically centered in the panel
                 button_width,
                 button_height
             )
             
-            # Draw button with glowing yellow highlight - THICKER BORDER
+            # Draw button with glowing blue highlight - matching game style
             button_surface = pygame.Surface((button_width, button_height), pygame.SRCALPHA)
-            pygame.draw.rect(button_surface, (60, 60, 0, 220), (0, 0, button_width, button_height), border_radius=12)
-            pygame.draw.rect(button_surface, (255, 255, 0, 200), (0, 0, button_width, button_height), 4, border_radius=12)  # Border increased to 4px
+            pygame.draw.rect(button_surface, (20, 20, 40, 220), (0, 0, button_width, button_height), border_radius=10)
+            pygame.draw.rect(button_surface, (100, 100, 200, 180), (0, 0, button_width, button_height), 2, border_radius=10)
             self.screen.blit(button_surface, select_button_rect)
             
-            # Button text with shadow - LARGER TEXT
-            select_text_shadow = self.fonts['big'].render("SELECT", True, (0, 0, 0))  # Changed from normal to big font
-            select_text = self.fonts['big'].render("SELECT", True, (255, 255, 0))      # Changed from normal to big font
+            # Button text with shadow - normal size
+            select_text_shadow = self.fonts['normal'].render("SELECT", True, (0, 0, 0))
+            select_text = self.fonts['normal'].render("SELECT", True, (220, 220, 255))
             
             # Center text in button
             text_x = select_button_rect.x + (button_width - select_text.get_width()) // 2
             text_y = select_button_rect.y + (button_height - select_text.get_height()) // 2
-            self.screen.blit(select_text_shadow, (text_x + 2, text_y + 2))  # Added more shadow offset
+            self.screen.blit(select_text_shadow, (text_x + 1, text_y + 1))
             self.screen.blit(select_text, (text_x, text_y))
             
             # Add to clickable elements as a select button

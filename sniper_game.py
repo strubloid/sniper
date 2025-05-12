@@ -118,51 +118,51 @@ class GameManager:
 
     def _handle_character_select(self, pos: Tuple[int, int]) -> None:
         """Handle clicks on the character selection screen."""
-        if self.show_confirm_popup:
-            yes_rect, no_rect = self.ui.draw_confirmation_popup(self.selected_candidate)
-            if yes_rect.collidepoint(pos):
-                if self.character_select_stage == "player":
-                    self.player = Character(
-                        const.PLAYER_START_X, 
-                        const.PLAYER_START_Y, 
-                        self.selected_candidate
-                    )
-                    self.character_select_stage = "enemy"
-                else:
-                    self.enemy = Character(
-                        const.ENEMY_START_X, 
-                        const.ENEMY_START_Y, 
-                        self.selected_candidate, 
-                        is_player=False
-                    )
-                    self.game_state = const.STATE_PLAY
-                    self.player.start_turn()
-                    self.start_game()
+        # Get all clickable elements from the UI
+        clickable_elements = self.ui.draw_character_select(
+            self.character_select_stage, 
+            self.selected_candidate, 
+            self.sniper_types
+        )
+        
+        # Process element clicks with priority handling
+        for element, element_type, element_data in clickable_elements:
+            if element.collidepoint(pos):
+                if element_type == "character":
+                    # Character selection - simply set the selected candidate
+                    self.selected_candidate = self.sniper_types[element_data]
+                    self._highlight_character_selection()
+                    return  # Return early to avoid processing background click
+                
+                elif element_type == "select_button" and self.selected_candidate:
+                    # Select button - immediately create character and advance
+                    if self.character_select_stage == "player":
+                        self.player = Character(
+                            const.PLAYER_START_X, 
+                            const.PLAYER_START_Y, 
+                            self.selected_candidate
+                        )
+                        self.character_select_stage = "enemy"
+                        self.selected_candidate = None
+                    else:
+                        self.enemy = Character(
+                            const.ENEMY_START_X, 
+                            const.ENEMY_START_Y, 
+                            self.selected_candidate, 
+                            is_player=False
+                        )
+                        self.game_state = const.STATE_PLAY
+                        self.player.start_turn()
+                        self.start_game()
+                        self.selected_candidate = None
+                    return  # Return early after selection is complete
+        
+        # If we get here, it's a background click - only process if not clicking UI elements
+        for element, element_type, element_data in clickable_elements:
+            if element.collidepoint(pos) and element_type == "background":
+                # Clear selection only if click was on background
                 self.selected_candidate = None
-                self.show_confirm_popup = False
-            elif no_rect.collidepoint(pos):
-                self.show_confirm_popup = False
-        else:
-            clickable_elements = self.ui.draw_character_select(
-                self.character_select_stage, 
-                self.selected_candidate, 
-                self.sniper_types
-            )
-            
-            for element, element_type, element_data in clickable_elements:
-                if element.collidepoint(pos):
-                    # Character selection
-                    if element_type == "character":
-                        old_selection = self.selected_candidate
-                        self.selected_candidate = self.sniper_types[element_data]
-                        
-                        # Show selection highlight animation only for new selections
-                        if old_selection != self.selected_candidate:
-                            self._highlight_character_selection()
-                    
-                    # Select button - show confirmation popup
-                    elif element_type == "select_button" and self.selected_candidate:
-                        self.show_confirm_popup = True
+                return
 
     def _highlight_character_selection(self) -> None:
         """Highlight the selected character with a yellow flash effect."""
@@ -264,6 +264,8 @@ class GameManager:
         if not self.ai_turn_started:
             self.ai_turn_started = True
             self.ai_turn_time = pygame.time.get_ticks()
+            # Reset AI state at the beginning of each turn
+            self.ai_state = const.AI_STATE_THINKING
         
         current_time = pygame.time.get_ticks()
         if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
@@ -425,11 +427,12 @@ class GameManager:
         self.ui.draw_instructions()
         self.ui.draw_turn_indicator(self.player_turn)
         
-        # Draw debug info
+        # Draw debug button and info - always draw debug button FIRST before the AI turn logic
+        debug_button_rect = self.ui.draw_debug_button()
         if self.show_debug:
             self.ui.draw_debug_info(self.ai_state)
         
-        # Draw the End Turn button ABSOLUTELY LAST to ensure it's on top of everything
+        # Draw the End Turn button
         if self.player_turn:
             self.ui.draw_end_turn_button()
             
