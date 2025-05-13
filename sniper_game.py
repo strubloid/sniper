@@ -269,24 +269,48 @@ class GameManager:
                     self.end_game("AI")
 
     def enemy_turn(self) -> None:
-        """Execute the enemy's turn using AI."""
+        """
+        Execute the enemy's turn using AI controller.
+        Uses a state-based approach to manage the AI turn sequence.
+        """
+        # Initialize the turn if not already started
         if not self.ai_turn_started:
-            self.ai_turn_started = True
-            self.ai_turn_time = pygame.time.get_ticks()
-            
-            # Reset AI state at the beginning of each turn
-            self.ai_state = const.AI_STATE_THINKING
-            
-            # CRITICAL: Explicitly set the enemy's move and shot values
-            # based on the character's sniper type
+            self._initialize_enemy_turn()
+        
+        # Check if the delay has passed before executing AI logic
+        current_time = pygame.time.get_ticks()
+        if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
+            self._execute_ai_turn()
+            self._finalize_enemy_turn()
+
+    def _initialize_enemy_turn(self) -> None:
+        """Initialize the enemy turn state and prepare for AI execution."""
+        self.ai_turn_started = True
+        self.ai_turn_time = pygame.time.get_ticks()
+        
+        # Reset AI state
+        self.ai_state = const.AI_STATE_THINKING
+        
+        # Reset enemy's actions based on character type
+        self._reset_enemy_actions()
+        
+        debug_print(f"Enemy turn started with moves: {self.enemy.moves_left}, shots: {self.enemy.shots_left}")
+
+    def _reset_enemy_actions(self) -> None:
+        """Reset enemy actions based on their character type and abilities."""
+        if self.enemy and self.enemy.sniper_type:
             self.enemy.moves_left = self.enemy.sniper_type.move_limit
             self.enemy.shots_left = 1  # Default 1 shot per turn
             
-            debug_print(f"Enemy turn started with moves: {self.enemy.moves_left}, shots: {self.enemy.shots_left}")
-        
-        current_time = pygame.time.get_ticks()
-        if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
-            # Pass the screen and a properly working redraw callback to AI
+            # Future extension point: Add special abilities or bonuses here
+            # Example: if self.enemy.sniper_type.name == "Scout":
+            #     self.enemy.moves_left += 1  # Scout gets extra movement
+
+    def _execute_ai_turn(self) -> None:
+        """Execute the AI turn logic with proper rendering updates."""
+        try:
+            # Pass game state to AI and get updated AI state
+            # Use a redraw callback to handle screen updates during AI animations
             self.ai_state = AI.take_turn(
                 self.virtual_screen,
                 self.enemy, 
@@ -295,11 +319,18 @@ class GameManager:
                 self.projectiles,
                 self._redraw_during_ai_turn
             )
-            
-            # Start the player's turn again
-            self.player_turn = True
-            self.player.start_turn()
-            self.ai_turn_started = False
+        except Exception as e:
+            debug_print(f"Error during AI turn execution: {e}")
+            import traceback
+            debug_print(traceback.format_exc())
+            self.ai_state = const.AI_STATE_END
+
+    def _finalize_enemy_turn(self) -> None:
+        """Clean up after AI turn and prepare for player's turn."""
+        # Start the player's turn again
+        self.player_turn = True
+        self.player.start_turn()
+        self.ai_turn_started = False
 
     def _redraw_during_ai_turn(self) -> None:
         """Redraw the game state during AI animations."""
