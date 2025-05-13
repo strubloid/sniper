@@ -484,14 +484,16 @@ class UI:
         hud_x, hud_y = 10, const.SCREEN_HEIGHT - 150
         spacing = const.HUD_SPACING
         
-        # Create HUD panel
-        hud_panel = pygame.Surface((300, 90), pygame.SRCALPHA)
-        pygame.draw.rect(hud_panel, (20, 20, 40, 200), (0, 0, 300, 90), border_radius=10)
-        pygame.draw.rect(hud_panel, (100, 100, 180, 200), (0, 0, 300, 90), 2, border_radius=10)
+        # Create HUD panel - INCREASED WIDTH to fit text
+        panel_width = 420  # Increased from 300 to 420
+        hud_panel = pygame.Surface((panel_width, 90), pygame.SRCALPHA)
+        pygame.draw.rect(hud_panel, (20, 20, 40, 200), (0, 0, panel_width, 90), border_radius=10)
+        pygame.draw.rect(hud_panel, (100, 100, 180, 200), (0, 0, panel_width, 90), 2, border_radius=10)
         self.screen.blit(hud_panel, (hud_x, hud_y))
 
-        # Player health with decorative elements
-        pygame.draw.rect(self.screen, (40, 40, 40), (hud_x + 10, hud_y + 10, 200, 20), border_radius=5)
+        # Player health with decorative elements - ADJUSTED WIDTH
+        bar_width = 250  # Increased from 200
+        pygame.draw.rect(self.screen, (40, 40, 40), (hud_x + 10, hud_y + 10, bar_width, 20), border_radius=5)
         player_health_ratio = max(0, min(1, player.health / player.max_health))
         
         # Health gradient
@@ -503,17 +505,20 @@ class UI:
             health_color = (200, 0, 0)  # Red
             
         pygame.draw.rect(self.screen, health_color, 
-                      (hud_x + 10, hud_y + 10, int(200 * player_health_ratio), 20), border_radius=5)
+                      (hud_x + 10, hud_y + 10, int(bar_width * player_health_ratio), 20), border_radius=5)
                       
-        # Health text with shadow
+        # Health text with shadow - MOVED TO RIGHT OF BAR
         hp_text = f"Player HP: {player.health}"
         shadow = self.fonts['normal'].render(hp_text, True, (0, 0, 0))
         text = self.fonts['normal'].render(hp_text, True, (220, 220, 220))
-        self.screen.blit(shadow, (hud_x + 221, hud_y + 11))
-        self.screen.blit(text, (hud_x + 220, hud_y + 10))
+        
+        # Position text within the panel
+        text_x = hud_x + bar_width + 20
+        self.screen.blit(shadow, (text_x + 1, hud_y + 11))
+        self.screen.blit(text, (text_x, hud_y + 10))
 
-        # Enemy health
-        pygame.draw.rect(self.screen, (40, 40, 40), (hud_x + 10, hud_y + 40, 200, 20), border_radius=5)
+        # Enemy health - ADJUSTED WIDTH
+        pygame.draw.rect(self.screen, (40, 40, 40), (hud_x + 10, hud_y + 40, bar_width, 20), border_radius=5)
         enemy_health_ratio = max(0, min(1, enemy.health / enemy.max_health))
         
         # Health gradient for enemy
@@ -525,19 +530,21 @@ class UI:
             enemy_health_color = (200, 0, 0)  # Red
             
         pygame.draw.rect(self.screen, enemy_health_color, 
-                      (hud_x + 10, hud_y + 40, int(200 * enemy_health_ratio), 20), border_radius=5)
+                      (hud_x + 10, hud_y + 40, int(bar_width * enemy_health_ratio), 20), border_radius=5)
                       
-        # Enemy health text with shadow
+        # Enemy health text with shadow - MOVED TO RIGHT OF BAR
         enemy_hp_text = f"Enemy HP: {enemy.health}"
         shadow = self.fonts['normal'].render(enemy_hp_text, True, (0, 0, 0))
         text = self.fonts['normal'].render(enemy_hp_text, True, (220, 220, 220))
-        self.screen.blit(shadow, (hud_x + 221, hud_y + 41))
-        self.screen.blit(text, (hud_x + 220, hud_y + 40))
+        
+        # Position text within the panel
+        self.screen.blit(shadow, (text_x + 1, hud_y + 41))
+        self.screen.blit(text, (text_x, hud_y + 40))
 
         # Player stats panel
         stats_panel = pygame.Surface((200, 30), pygame.SRCALPHA)
         pygame.draw.rect(stats_panel, (30, 30, 50, 200), (0, 0, 200, 30), border_radius=5)
-        self.screen.blit(stats_panel, (hud_x + 350, hud_y + 10))
+        self.screen.blit(stats_panel, (hud_x + 110, hud_y + 65))  # Moved from 350 to 110
         
         # Player stats text
         moves_text = f"Moves: {player.moves_left}"
@@ -546,8 +553,8 @@ class UI:
         moves = self.fonts['normal'].render(moves_text, True, (180, 180, 220))
         shots = self.fonts['normal'].render(shots_text, True, (180, 180, 220))
         
-        self.screen.blit(moves, (hud_x + 360, hud_y + 15))
-        self.screen.blit(shots, (hud_x + 460, hud_y + 15))
+        self.screen.blit(moves, (hud_x + 120, hud_y + 70))  # Adjusted from 360 to 120
+        self.screen.blit(shots, (hud_x + 220, hud_y + 70))  # Adjusted from 460 to 220
     
     def draw_projectiles(self, projectiles: List[Projectile]) -> None:
         """Draw all projectiles with glow effect."""

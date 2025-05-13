@@ -46,6 +46,7 @@ class AI:
             # PRIORITY 1: SHOOT IF PLAYER IS IN LINE OF SIGHT
             debug_print("Phase 1: Checking line of sight for initial shot")
             if enemy.shots_left > 0:
+                debug_print(f"Enemy has {enemy.shots_left} shots left, checking line of fire...")
                 can_shoot = AI._has_line_of_fire(enemy, player, obstacles)
                 debug_print(f"  Can shoot initial: {can_shoot}")
                 if can_shoot:
@@ -54,7 +55,8 @@ class AI:
                     redraw_callback()
                     pygame.time.delay(300)
 
-                    AI._execute_shot(enemy, player, projectiles)
+                    shot_success = AI._execute_shot(enemy, player, projectiles)
+                    debug_print(f"  Shot executed with success: {shot_success}")
                     redraw_callback()
                     pygame.time.delay(400)
             else:
@@ -63,7 +65,7 @@ class AI:
             # PRIORITY 2: FIND COVER NEAR PLAYER
             debug_print("Phase 2: Movement/Tactical repositioning")
             if enemy.moves_left > 0:
-                debug_print("  Moves available, finding best tactical position")
+                debug_print(f"  Enemy has {enemy.moves_left} moves left, finding tactical position")
                 ai_state = const.AI_STATE_AIMING
                 redraw_callback()
                 pygame.time.delay(300)
@@ -71,11 +73,13 @@ class AI:
                 best_move = AI._find_best_tactical_position(enemy, player, obstacles, enemy.moves_left)
                 if best_move:
                     new_pos, path = best_move
-                    debug_print(f"  Best tactical move: {new_pos} via {path}")
+                    debug_print(f"  Best tactical move: {new_pos} via path of length {len(path)}")
                     AI._execute_movement(enemy, path, redraw_callback)
+                    debug_print(f"  Movement executed, enemy now at ({enemy.x}, {enemy.y})")
                 else:
                     debug_print("  No tactical position found, trying simple tactical move")
                     moved = AI._make_simple_tactical_move(enemy, player, obstacles, redraw_callback)
+                    debug_print(f"  Simple move result: {moved}")
                     if not moved:
                         debug_print("  No simple tactical move made")
             else:
@@ -84,6 +88,7 @@ class AI:
             # PRIORITY 3: SHOOT AFTER REPOSITIONING
             debug_print("Phase 3: Checking line of sight after movement")
             if enemy.shots_left > 0:
+                debug_print(f"Enemy still has {enemy.shots_left} shots left, checking line of fire again...")
                 can_shoot2 = AI._has_line_of_fire(enemy, player, obstacles)
                 debug_print(f"  Can shoot after move: {can_shoot2}")
                 if can_shoot2:
@@ -92,7 +97,8 @@ class AI:
                     redraw_callback()
                     pygame.time.delay(300)
 
-                    AI._execute_shot(enemy, player, projectiles)
+                    shot_success = AI._execute_shot(enemy, player, projectiles)
+                    debug_print(f"  Post-move shot executed with success: {shot_success}")
                     redraw_callback()
                     pygame.time.delay(400)
             else:
@@ -106,6 +112,8 @@ class AI:
             debug_print("--- AI Turn End ---")
         except Exception as e:
             debug_print(f"AI Error: {str(e)}")
+            import traceback
+            debug_print(f"Traceback: {traceback.format_exc()}")
             ai_state = const.AI_STATE_END
         
         # Reset enemy movement and shots
@@ -117,22 +125,27 @@ class AI:
     @staticmethod
     def _has_line_of_fire(enemy: Character, player: Character, obstacles: List[Tuple[int, int]]) -> bool:
         debug_print(f"Checking line of fire between Enemy({enemy.x},{enemy.y}) and Player({player.x},{player.y})")
+        
+        # Convert positions to integers for reliable comparison
+        enemy_x, enemy_y = int(enemy.x), int(enemy.y)
+        player_x, player_y = int(player.x), int(player.y)
+        
         # Direct hit check - must be in same row or column
-        if enemy.x != player.x and enemy.y != player.y:
+        if enemy_x != player_x and enemy_y != player_y:
             debug_print("Line of fire result: False")
             return False
         
         # Check for obstacles in between
-        if enemy.x == player.x:  # Same column
-            start_y, end_y = min(enemy.y, player.y), max(enemy.y, player.y)
+        if enemy_x == player_x:  # Same column
+            start_y, end_y = min(enemy_y, player_y), max(enemy_y, player_y)
             for y in range(start_y + 1, end_y):
-                if (enemy.x, y) in obstacles:
+                if (enemy_x, y) in obstacles:
                     debug_print("Line of fire result: False")
                     return False
         else:  # Same row
-            start_x, end_x = min(enemy.x, player.x), max(enemy.x, player.x)
+            start_x, end_x = min(enemy_x, player_x), max(enemy_x, player_x)
             for x in range(start_x + 1, end_x):
-                if (x, enemy.y) in obstacles:
+                if (x, enemy_y) in obstacles:
                     debug_print("Line of fire result: False")
                     return False
         
@@ -226,19 +239,22 @@ class AI:
         score = 0
         x, y = position
         
+        # Get integer positions for player
+        player_x, player_y = int(player.x), int(player.y)
+        
         # FACTOR 1: Can we shoot the player from here?
-        if x == player.x or y == player.y:
+        if x == player_x or y == player_y:
             # Check if path would be clear
             would_have_shot = True
             
-            if x == player.x:  # Same column
-                start_y, end_y = min(y, player.y), max(y, player.y)
+            if x == player_x:  # Same column
+                start_y, end_y = min(y, player_y), max(y, player_y)
                 for check_y in range(start_y + 1, end_y):
                     if (x, check_y) in obstacles:
                         would_have_shot = False
                         break
             else:  # Same row
-                start_x, end_x = min(x, player.x), max(x, player.x)
+                start_x, end_x = min(x, player_x), max(x, player_x)
                 for check_x in range(start_x + 1, end_x):
                     if (check_x, y) in obstacles:
                         would_have_shot = False
@@ -267,7 +283,7 @@ class AI:
             score -= health_penalty * 0.5
         
         # FACTOR 4: Distance from player
-        dist_to_player = abs(x - player.x) + abs(y - player.y)
+        dist_to_player = abs(x - player_x) + abs(y - player_y)
         
         # Prefer medium distances - not too close, not too far
         if 2 <= dist_to_player <= 3:
@@ -381,6 +397,9 @@ class AI:
             debug_print("No moves left for simple tactical move")
             return False
             
+        # Convert positions to integers for reliable comparison
+        player_x, player_y = int(player.x), int(player.y)
+        
         # Check all adjacent squares
         best_pos = None
         best_score = -float('inf')
@@ -391,7 +410,7 @@ class AI:
             # Skip invalid positions
             if (x < 0 or x >= const.GRID_WIDTH or
                 y < 0 or y >= const.GRID_HEIGHT or
-                (x, y) in obstacles or (x, y) == (player.x, player.y)):
+                (x, y) in obstacles or (x, y) == (player_x, player_y)):
                 continue
             
             # Score this position
@@ -399,14 +418,14 @@ class AI:
             
             # Check if we can shoot from here
             can_shoot = False
-            if x == player.x or y == player.y:
+            if x == player_x or y == player_y:
                 # Check line of sight
-                if x == player.x:  # Same column
-                    start_y, end_y = min(y, player.y), max(y, player.y)
+                if x == player_x:  # Same column
+                    start_y, end_y = min(y, player_y), max(y, player_y)
                     if all((x, check_y) not in obstacles for check_y in range(start_y + 1, end_y)):
                         can_shoot = True
                 else:  # Same row
-                    start_x, end_x = min(x, player.x), max(x, player.x)
+                    start_x, end_x = min(x, player_x), max(x, player_x)
                     if all((check_x, y) not in obstacles for check_x in range(start_x + 1, end_x)):
                         can_shoot = True
                 
@@ -419,7 +438,7 @@ class AI:
             score += cover * 10
             
             # Distance factor - prefer medium distance
-            dist = abs(x - player.x) + abs(y - player.y)
+            dist = abs(x - player_x) + abs(y - player_y)
             if 2 <= dist <= 3:
                 score += 20
             elif dist == 1:

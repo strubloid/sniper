@@ -27,10 +27,26 @@ class GameManager:
         # Initialize pygame
         pygame.init()
         
-        # Set up the screen and clock
-        self.screen = pygame.display.set_mode((const.SCREEN_WIDTH, const.SCREEN_HEIGHT))
+        # Get the screen info to set borderless windowed fullscreen
+        screen_info = pygame.display.Info()
+        self.screen_width = screen_info.current_w
+        self.screen_height = screen_info.current_h
+        
+        # Set up the screen and clock - using borderless windowed mode instead of fullscreen
+        self.screen = pygame.display.set_mode((self.screen_width, self.screen_height), pygame.NOFRAME)
         pygame.display.set_caption("Sniper Game")
         self.clock = pygame.time.Clock()
+        
+        # Create a virtual screen at the original resolution for the game logic
+        self.virtual_screen = pygame.Surface((const.SCREEN_WIDTH, const.SCREEN_HEIGHT))
+        
+        # Set scaling to fill the entire screen width and height
+        self.scale_x = self.screen_width / const.SCREEN_WIDTH
+        self.scale_y = self.screen_height / const.SCREEN_HEIGHT
+        
+        # Calculate offset based on full width and height
+        self.offset_x = 0
+        self.offset_y = 0
         
         # Set up fonts
         self.fonts = {
@@ -39,7 +55,7 @@ class GameManager:
         }
         
         # Create UI manager
-        self.ui = UI(self.screen, self.fonts)
+        self.ui = UI(self.virtual_screen, self.fonts)
         
         # Game state
         self.game_state = const.STATE_MENU
@@ -166,17 +182,9 @@ class GameManager:
                 return
 
     def _highlight_character_selection(self) -> None:
-        """Highlight the selected character with a yellow flash effect."""
-        # Draw the character selection screen with normal highlight
-        self.screen.fill(const.BLACK)
-        char_rects = self.ui.draw_character_select(
-            self.character_select_stage, 
-            self.selected_candidate, 
-            self.sniper_types,
-            highlight_color=(255, 255, 0)  # Yellow highlight
-        )
-        pygame.display.flip()
-        pygame.time.delay(150)  # Flash duration
+        """Highlight the selected character without causing screen flashing."""
+        # Remove the screen flashing and delay that was causing blinking
+        pass  # Do nothing - selection highlight will be shown in the next normal render cycle
 
     def _handle_gameplay_click(self, pos: Tuple[int, int], grid_x: int, grid_y: int) -> None:
         """Handle clicks during gameplay."""
@@ -261,31 +269,32 @@ class GameManager:
                     self.end_game("AI")
 
     def enemy_turn(self) -> None:
-        debug_print("GameManager.enemy_turn called. player_turn=", self.player_turn)
-        debug_print(f"Enemy stats before turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
         """Execute the enemy's turn using AI."""
         if not self.ai_turn_started:
-            debug_print("Initializing AI turn start")
             self.ai_turn_started = True
             self.ai_turn_time = pygame.time.get_ticks()
+            
             # Reset AI state at the beginning of each turn
             self.ai_state = const.AI_STATE_THINKING
-            # Initialize enemy's turn stats so AI has moves and shots
-            self.enemy.start_turn()
-            debug_print(f"Enemy stats after start_turn: moves_left={self.enemy.moves_left}, shots_left={self.enemy.shots_left}")
+            
+            # CRITICAL: Explicitly set the enemy's move and shot values
+            # based on the character's sniper type
+            self.enemy.moves_left = self.enemy.sniper_type.move_limit
+            self.enemy.shots_left = 1  # Default 1 shot per turn
+            
+            debug_print(f"Enemy turn started with moves: {self.enemy.moves_left}, shots: {self.enemy.shots_left}")
         
         current_time = pygame.time.get_ticks()
         if current_time - self.ai_turn_time >= const.AI_TURN_DELAY:
-            debug_print("AI turn delay passed, calling AI.take_turn")
+            # Pass the screen and a properly working redraw callback to AI
             self.ai_state = AI.take_turn(
-                self.screen,
+                self.virtual_screen,
                 self.enemy, 
                 self.player, 
                 self.obstacles, 
                 self.projectiles,
                 self._redraw_during_ai_turn
             )
-            debug_print("AI.take_turn returned state=", self.ai_state)
             
             # Start the player's turn again
             self.player_turn = True
@@ -294,16 +303,30 @@ class GameManager:
 
     def _redraw_during_ai_turn(self) -> None:
         """Redraw the game state during AI animations."""
+        # Fill the entire screen with black background
         self.screen.fill(const.BLACK)
+        
+        # Clear the virtual screen
+        self.virtual_screen.fill(const.BLACK)
+        
+        # Draw game elements on virtual screen
         self.ui.draw_grid()
         self.ui.draw_obstacles(self.obstacles)
-        self.player.draw(self.screen)
-        self.enemy.draw(self.screen)
+        self.player.draw(self.virtual_screen)
+        self.enemy.draw(self.virtual_screen)
         self.ui.draw_projectiles(self.projectiles)
         self.ui.draw_hud_grid(self.player, self.enemy)
         self.ui.draw_turn_indicator(self.player_turn)
         if self.show_debug:
             self.ui.draw_debug_info(self.ai_state)
+            
+        # Scale the virtual screen to the full display size
+        scaled_surface = pygame.transform.scale(
+            self.virtual_screen, (self.screen_width, self.screen_height)
+        )
+        
+        # Blit the scaled surface onto the screen (no offset needed as we're filling entire screen)
+        self.screen.blit(scaled_surface, (0, 0))
         pygame.display.flip()
 
     def end_game(self, winner: str) -> None:
@@ -326,7 +349,11 @@ class GameManager:
         running = True
         
         while running:
-            self.screen.fill(const.BLACK)
+            # Fill the entire screen with a black background
+            self.screen.fill((0, 0, 0))
+            
+            # Clear the virtual screen for game content
+            self.virtual_screen.fill(const.BLACK)
             
             # Store button rectangles outside the event loop
             end_turn_button_rect = None
@@ -341,25 +368,34 @@ class GameManager:
                 if event.type == pygame.QUIT:
                     running = False
                 elif event.type == pygame.MOUSEBUTTONDOWN:
-                    mouse_pos = event.pos
+                    # Convert actual mouse position to virtual screen coordinates
+                    actual_mouse_pos = event.pos
+                    virtual_mouse_pos = (
+                        actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
+                        actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
+                    )
                     
-                    # Handle button clicks here (outside of rendering)
-                    if self.game_state == const.STATE_PLAY:
-                        if (end_turn_button_rect and end_turn_button_rect.collidepoint(mouse_pos) 
-                                and self.player_turn):
-                            # End Turn button clicked
-                            self.player.moves_left = 0
-                            self.player.shots_left = 0
-                            self.player_turn = False
-                            continue  # Skip other click handling
+                    # Only process clicks if they're within the virtual screen bounds
+                    if (0 <= virtual_mouse_pos[0] < const.SCREEN_WIDTH and 
+                        0 <= virtual_mouse_pos[1] < const.SCREEN_HEIGHT):
                         
-                        if debug_button_rect and debug_button_rect.collidepoint(mouse_pos):
-                            # Debug button clicked
-                            self.toggle_debug()
-                            continue  # Skip other click handling
-                    
-                    # Handle other mouse clicks
-                    self.handle_mouse_click(mouse_pos)
+                        # Handle button clicks here (outside of rendering)
+                        if self.game_state == const.STATE_PLAY:
+                            if (end_turn_button_rect and end_turn_button_rect.collidepoint(virtual_mouse_pos) 
+                                    and self.player_turn):
+                                # End Turn button clicked
+                                self.player.moves_left = 0
+                                self.player.shots_left = 0
+                                self.player_turn = False
+                                continue  # Skip other click handling
+                            
+                            if debug_button_rect and debug_button_rect.collidepoint(virtual_mouse_pos):
+                                # Debug button clicked
+                                self.toggle_debug()
+                                continue  # Skip other click handling
+                        
+                        # Handle other mouse clicks
+                        self.handle_mouse_click(virtual_mouse_pos)
                     
                 elif event.type == pygame.KEYDOWN:
                     self._handle_keydown(event)
@@ -367,7 +403,13 @@ class GameManager:
             # Render based on game state
             self._render_current_state()
             
-            # Update display
+            # Scale the virtual screen to the full display size
+            scaled_surface = pygame.transform.scale(
+                self.virtual_screen, (self.screen_width, self.screen_height)
+            )
+            
+            # Blit the scaled surface onto the screen (no offset needed as we're filling entire screen)
+            self.screen.blit(scaled_surface, (0, 0))
             pygame.display.flip()
             self.clock.tick(const.FPS)
 
@@ -414,19 +456,28 @@ class GameManager:
         
         # Draw characters and ranges
         if self.player:
-            self.player.draw_range(self.screen)
-            self.player.draw(self.screen)
+            self.player.draw_range(self.virtual_screen)
+            self.player.draw(self.virtual_screen)
         
         if self.enemy:
-            self.enemy.draw(self.screen)
+            self.enemy.draw(self.virtual_screen)
             
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
         
         # Draw shooting arrow
         if self.shoot_mode and self.player.shots_left > 0:
-            mouse_pos = pygame.mouse.get_pos()
-            self.ui.draw_shooting_arrow(self.player.x, self.player.y, mouse_pos)
+            # Get actual mouse position and convert to virtual screen coordinates
+            actual_mouse_pos = pygame.mouse.get_pos()
+            virtual_mouse_pos = (
+                actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
+                actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
+            )
+            
+            # Only draw the arrow if the mouse is within the virtual screen
+            if (0 <= virtual_mouse_pos[0] < const.SCREEN_WIDTH and 
+                0 <= virtual_mouse_pos[1] < const.SCREEN_HEIGHT):
+                self.ui.draw_shooting_arrow(self.player.x, self.player.y, virtual_mouse_pos)
             
         # Process game logic
         self.handle_projectile_logic()

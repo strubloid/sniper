@@ -63,7 +63,7 @@ HUD_SPACING = 10
 PROJECTILE_RADIUS = 6
 
 # Debugging control
-DEBUG = 0
+DEBUG = 1
 
 def debug_print(*args, **kwargs):
     """Print debug messages if DEBUG is enabled."""
