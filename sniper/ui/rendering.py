@@ -2,6 +2,7 @@
 UI Rendering module for the Sniper Game.
 """
 import pygame
+import random
 from typing import List, Tuple, Dict, Any, Optional
 
 from sniper.config.constants import const, debug_print
@@ -170,26 +171,146 @@ class UI:
     
     def draw_menu(self) -> List[Tuple[pygame.Rect, str]]:
         """Draw the main menu and return clickable elements."""
-        title_text = self.fonts['big'].render("Sniper Game", True, const.WHITE)
-        title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 100))
+        # Draw a grid background
+        self.draw_grid()
+        
+        # Generate some random obstacles for visual interest
+        if not hasattr(self, '_menu_obstacles'):
+            self._menu_obstacles = []
+            for _ in range(10):  # Add some bushes
+                x = random.randint(0, const.GRID_WIDTH - 1)
+                y = random.randint(0, const.GRID_HEIGHT - 1)
+                self._menu_obstacles.append(('bush', (x, y)))
+            
+            for _ in range(5):  # Add some crates
+                x = random.randint(0, const.GRID_WIDTH - 1)
+                y = random.randint(0, const.GRID_HEIGHT - 1)
+                self._menu_obstacles.append(('crate', (x, y)))
+        
+        # Draw the obstacles
+        for obstacle_type, (x, y) in self._menu_obstacles:
+            rect = pygame.Rect(
+                x * const.GRID_SIZE, 
+                y * const.GRID_SIZE,
+                const.GRID_SIZE, 
+                const.GRID_SIZE
+            )
+            
+            if obstacle_type == 'bush':
+                # Draw a bush (green circle)
+                pygame.draw.circle(
+                    self.surface, 
+                    (60, 80, 30),  # Dark green
+                    (x * const.GRID_SIZE + const.GRID_SIZE // 2, 
+                     y * const.GRID_SIZE + const.GRID_SIZE // 2),
+                    const.GRID_SIZE // 2 - 2
+                )
+            else:  # crate
+                # Draw a crate (brown rectangle)
+                pygame.draw.rect(
+                    self.surface, 
+                    (90, 60, 40),  # Brown
+                    rect.inflate(-8, -8)
+                )
+                # Add some details to the crate
+                pygame.draw.line(
+                    self.surface,
+                    (70, 45, 30),
+                    (rect.left + 4, rect.centery),
+                    (rect.right - 4, rect.centery),
+                    2
+                )
+        
+        # Create title background
+        title_bg_rect = pygame.Rect(
+            const.SCREEN_WIDTH // 2 - 225,
+            100, 
+            450, 
+            80
+        )
+        pygame.draw.rect(self.surface, (15, 30, 60), title_bg_rect)  # Dark navy blue
+        pygame.draw.rect(self.surface, (200, 160, 80), title_bg_rect, 3)  # Gold border
+        
+        # Create title text
+        title_text = self.fonts['big'].render("SNIPER", True, (220, 180, 100))  # Golden color
+        title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 140))
         self.surface.blit(title_text, title_rect)
         
+        # Return all clickable elements
         buttons = []
-        y_offset = 200
         
-        for option in ["Play", "Scoreboard", "Quit"]:
-            button = Button(
-                const.SCREEN_WIDTH // 2 - const.BUTTON_WIDTH // 2,
-                y_offset,
-                const.BUTTON_WIDTH,
-                const.BUTTON_HEIGHT,
-                option
-            )
-            button.draw(self.surface, self.fonts['normal'])
-            buttons.append((button.rect, option))
-            y_offset += const.BUTTON_HEIGHT + const.BUTTON_SPACING
+        # Check if we're showing the main menu or submenu
+        if not hasattr(self, 'showing_play_submenu') or not self.showing_play_submenu:
+            # Main menu buttons
+            button_options = ["PLAY", "OPTIONS", "LEADERBOARD", "EXIT"]
+            y_offset = 250
+            
+            for option in button_options:
+                # Create button background
+                button_bg_rect = pygame.Rect(
+                    const.SCREEN_WIDTH // 2 - 175,
+                    y_offset,
+                    350,
+                    70
+                )
+                pygame.draw.rect(self.surface, (80, 30, 20), button_bg_rect)  # Brown color
+                pygame.draw.rect(self.surface, (200, 160, 80), button_bg_rect, 3)  # Gold border
+                
+                # Create button text
+                button_text = self.fonts['big'].render(option, True, (220, 180, 100))  # Golden color
+                button_text_rect = button_text.get_rect(center=(const.SCREEN_WIDTH // 2, y_offset + 35))
+                self.surface.blit(button_text, button_text_rect)
+                
+                buttons.append((button_bg_rect, option))
+                y_offset += 90  # Closer spacing to fit all buttons
+        else:
+            # Back button
+            back_rect = pygame.Rect(20, 20, 100, 40)
+            pygame.draw.rect(self.surface, (80, 30, 20), back_rect)  # Brown color
+            pygame.draw.rect(self.surface, (200, 160, 80), back_rect, 2)  # Gold border
+            back_text = self.fonts['normal'].render("< BACK", True, (220, 180, 100))
+            back_text_rect = back_text.get_rect(center=(70, 40))
+            self.surface.blit(back_text, back_text_rect)
+            buttons.append((back_rect, "BACK_TO_MENU"))
+            
+            # Play submenu title
+            submenu_text = self.fonts['big'].render("GAME MODE", True, (220, 180, 100))
+            submenu_rect = submenu_text.get_rect(center=(const.SCREEN_WIDTH // 2, 220))
+            self.surface.blit(submenu_text, submenu_rect)
+            
+            # Play options
+            play_options = ["PLAYER VS AI", "PLAYER VS PLAYER"]
+            y_offset = 300
+            
+            for option in play_options:
+                # Create button background
+                button_bg_rect = pygame.Rect(
+                    const.SCREEN_WIDTH // 2 - 175,
+                    y_offset,
+                    350,
+                    70
+                )
+                pygame.draw.rect(self.surface, (80, 30, 20), button_bg_rect)  # Brown color
+                pygame.draw.rect(self.surface, (200, 160, 80), button_bg_rect, 3)  # Gold border
+                
+                # Create button text
+                button_text = self.fonts['normal'].render(option, True, (220, 180, 100))  # Golden color
+                button_text_rect = button_text.get_rect(center=(const.SCREEN_WIDTH // 2, y_offset + 35))
+                self.surface.blit(button_text, button_text_rect)
+                
+                buttons.append((button_bg_rect, option))
+                y_offset += 100
         
         return buttons
+        
+    def toggle_play_submenu(self, show: bool = None) -> None:
+        """Toggle or set the play submenu visibility."""
+        if show is None:
+            # Toggle current state
+            self.showing_play_submenu = not getattr(self, 'showing_play_submenu', False)
+        else:
+            # Set to specified state
+            self.showing_play_submenu = show
     
     def draw_scoreboard(self) -> None:
         """Draw the scoreboard screen."""

@@ -119,11 +119,29 @@ class GameManager:
             menu_buttons = self.ui.draw_menu()
             for rect, option in menu_buttons:
                 if rect.collidepoint(pos):
-                    if option == "Play":
+                    if option == "PLAY":
+                        # Show play submenu instead of going directly to character select
+                        self.ui.toggle_play_submenu(True)
+                    elif option == "PLAYER VS AI":
+                        # Start a new Player vs AI game
                         self.game_state = const.STATE_SELECT
-                    elif option == "Scoreboard":
+                        self.game_mode = "ai"
+                        self.ui.toggle_play_submenu(False)
+                    elif option == "PLAYER VS PLAYER":
+                        # Start a new Player vs Player game (to be implemented)
+                        self.game_state = const.STATE_SELECT
+                        self.game_mode = "pvp"
+                        self.ui.toggle_play_submenu(False)
+                    elif option == "BACK_TO_MENU":
+                        # Return to main menu from submenu
+                        self.ui.toggle_play_submenu(False)
+                    elif option == "OPTIONS":
+                        # Show options menu (placeholder)
+                        debug_print("Options selected")
+                        # Future: self.game_state = const.STATE_OPTIONS
+                    elif option == "LEADERBOARD":
                         self.game_state = const.STATE_SCOREBOARD
-                    elif option == "Quit":
+                    elif option == "EXIT":
                         pygame.quit()
                         sys.exit()
         
