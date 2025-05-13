@@ -42,8 +42,8 @@ class Character:
     def draw(self, surface: pygame.Surface) -> None:
         """Draw the character on the surface."""
         rect = pygame.Rect(
-            self.x * const.GRID_SIZE, 
-            self.y * const.GRID_SIZE,
+            int(self.x) * const.GRID_SIZE, 
+            int(self.y) * const.GRID_SIZE,
             const.GRID_SIZE, 
             const.GRID_SIZE
         )
@@ -57,10 +57,14 @@ class Character:
     def draw_range(self, surface: pygame.Surface) -> None:
         """Draw the movement range if shown."""
         if self.show_range and self.moves_left > 0:
-            for x in range(max(0, self.x - self.moves_left), min(const.GRID_WIDTH, self.x + self.moves_left + 1)):
-                for y in range(max(0, self.y - self.moves_left), min(const.GRID_HEIGHT, self.y + self.moves_left + 1)):
+            # Convert coordinates to integers to avoid TypeError with range()
+            int_x, int_y = int(self.x), int(self.y)
+            moves_left = int(self.moves_left)  # Ensure moves_left is also an integer
+            
+            for x in range(max(0, int_x - moves_left), min(const.GRID_WIDTH, int_x + moves_left + 1)):
+                for y in range(max(0, int_y - moves_left), min(const.GRID_HEIGHT, int_y + moves_left + 1)):
                     # Skip positions that are out of range (using Manhattan distance)
-                    if abs(x - self.x) + abs(y - self.y) <= self.moves_left:
+                    if abs(x - int_x) + abs(y - int_y) <= moves_left:
                         highlight_rect = pygame.Rect(
                             x * const.GRID_SIZE, 
                             y * const.GRID_SIZE,
