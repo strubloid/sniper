@@ -339,57 +339,71 @@ class UI:
     def draw_character_select(self, stage: str, selected: Optional[Any], 
                             sniper_types: List) -> List[Tuple[pygame.Rect, str, int]]:
         """Draw the character selection screen."""
-        title = f"Select {'Player' if stage == 'player' else 'Enemy'} Character"
+        # Black background
+        self.surface.fill((0, 0, 0))
+        
+        # Title text
+        title = f"Select {stage.capitalize()} Character"
         title_text = self.fonts['big'].render(title, True, const.WHITE)
         title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
         self.surface.blit(title_text, title_rect)
         
         clickable_elements = []
         
-        # Draw character options
-        x_offset = const.SCREEN_WIDTH // 2 - (len(sniper_types) * 150) // 2
+        # Calculate spacing between character boxes
+        num_characters = len(sniper_types)
+        total_width = num_characters * 180 + (num_characters - 1) * 20  # 180px per char, 20px spacing
+        start_x = (const.SCREEN_WIDTH - total_width) // 2
         
+        # Draw character options
         for i, sniper_type in enumerate(sniper_types):
-            # Character box
-            char_rect = pygame.Rect(x_offset + i * 150, 100, 120, 120)
-            color = (200, 200, 200) if selected == sniper_type else (100, 100, 100)
-            pygame.draw.rect(self.surface, color, char_rect)
+            # Calculate position
+            x_pos = start_x + i * 200  # 180px box + 20px spacing
+            y_pos = 150  # Start y position for character boxes
             
-            # Character sprite or color
-            sprite_rect = pygame.Rect(x_offset + i * 150 + 10, 110, 100, 100)
+            # Character box background
+            char_rect = pygame.Rect(x_pos, y_pos, 180, 180)
+            bg_color = (200, 200, 200) if selected == sniper_type else (100, 100, 100)
+            pygame.draw.rect(self.surface, bg_color, char_rect)
+            
+            # Character sprite
+            sprite_rect = pygame.Rect(x_pos + 25, y_pos + 25, 130, 130)
             if hasattr(sniper_type, 'sprite') and sniper_type.sprite:
-                self.surface.blit(pygame.transform.scale(sniper_type.sprite, (100, 100)), sprite_rect)
+                scaled_sprite = pygame.transform.scale(sniper_type.sprite, (130, 130))
+                self.surface.blit(scaled_sprite, sprite_rect)
             else:
+                # Draw a colored rectangle if no sprite
                 pygame.draw.rect(self.surface, sniper_type.color, sprite_rect)
             
-            # Character name
-            name_text = self.fonts['normal'].render(sniper_type.name, True, const.WHITE)
-            name_rect = name_text.get_rect(center=(x_offset + i * 150 + 60, 240))
+            # Character name - below the sprite box
+            name_text = self.fonts['big'].render(sniper_type.name, True, const.WHITE)
+            name_rect = name_text.get_rect(center=(x_pos + 90, y_pos + 210))
             self.surface.blit(name_text, name_rect)
             
-            # Character description
+            # Character description - below the name
             desc_text = self.fonts['normal'].render(sniper_type.description, True, const.WHITE)
-            desc_rect = desc_text.get_rect(center=(x_offset + i * 150 + 60, 260))
+            desc_rect = desc_text.get_rect(center=(x_pos + 90, y_pos + 240))
             self.surface.blit(desc_text, desc_rect)
             
-            # Add to clickable elements - (rect, type, index)
+            # Add to clickable elements
             clickable_elements.append((char_rect, "character", i))
         
         # Draw select button if character is selected
         if selected:
-            select_button = Button(
-                const.SCREEN_WIDTH // 2 - const.BUTTON_WIDTH // 2,
+            select_button_rect = pygame.Rect(
+                const.SCREEN_WIDTH // 2 - 150,
                 const.SCREEN_HEIGHT - 100,
-                const.BUTTON_WIDTH,
-                const.BUTTON_HEIGHT,
-                f"Select {selected.name}"
+                300,
+                70
             )
-            select_button.draw(self.surface, self.fonts['normal'])
-            clickable_elements.append((select_button.rect, "select_button", None))
-        
-        # Add the background as a clickable element with lowest priority
-        background_rect = self.surface.get_rect()
-        clickable_elements.append((background_rect, "background", None))
+            pygame.draw.rect(self.surface, (200, 200, 200), select_button_rect)
+            pygame.draw.rect(self.surface, (50, 50, 50), select_button_rect, 2)
+            
+            button_text = self.fonts['normal'].render(f"Select {selected.name}", True, (0, 0, 0))
+            button_text_rect = button_text.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT - 65))
+            self.surface.blit(button_text, button_text_rect)
+            
+            clickable_elements.append((select_button_rect, "select_button", None))
         
         return clickable_elements
     
