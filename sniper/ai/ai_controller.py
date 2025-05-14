@@ -50,6 +50,8 @@ class AI:
         
         # Ensure enemy stats are reset for this turn
         enemy.start_turn()
+        # Track initial moves to detect no movement
+        initial_moves = enemy.moves_left
         
         # Initialize AI state and show thinking animation
         ai_state = cls._state_manager.transition_to_thinking(redraw_callback)
@@ -88,6 +90,10 @@ class AI:
             print(f"AI ERROR TRACEBACK: {traceback.format_exc()}")
             ai_state = const.AI_STATE_END
         
+        # Health regen for no movement
+        if enemy.health > 0 and enemy.moves_left == initial_moves:
+            enemy.health = min(100, enemy.health + const.HEALTH_REGEN_NO_MOVE)
+            debug_print(f"Enemy regenerated {const.HEALTH_REGEN_NO_MOVE} health for not moving.")
         # Reset enemy movement and shots at end of turn
         enemy.moves_left = 0
         enemy.shots_left = 0
@@ -99,50 +105,53 @@ class AI:
             cls, enemy: Character, player: Character, 
             obstacles: List[Tuple[int, int]], redraw_callback: Callable, game_manager=None
     ) -> str:
-        """Execute movement to find a position with line of sight to the player."""
-        debug_print("Phase 1: Offensive Movement - Finding position with line of sight")
-        
+        """Execute movement to find a position with line of sight to the player, or get close for courage."""
+        debug_print("Phase 1: Offensive Movement - Finding position with line of sight or proximity")
+
         if enemy.moves_left <= 0:
             debug_print("  No moves left for offensive movement phase")
             return const.AI_STATE_THINKING
             
         debug_print(f"  Enemy has {enemy.moves_left} moves left, finding position with line of sight")
         ai_state = cls._state_manager.transition_to_aiming(redraw_callback)
-        
+
         # Try to find a position with line of sight to player
         offensive_move = cls._tactical_finder.find_position_with_line_of_sight(
             enemy, player, obstacles, enemy.moves_left
         )
-        
+
         if offensive_move:
             new_pos, path = offensive_move
             debug_print(f"  Offensive move: {new_pos} via path of length {len(path)}")
-            
-            # Keep track of original moves left for retreat phase
-            moves_used = min(len(path), enemy.moves_left)
-            
-            # Execute the movement
             cls._movement_executor.execute_movement(enemy, path, redraw_callback, game_manager)
             debug_print(f"  Movement executed, enemy now at ({enemy.x}, {enemy.y})")
         else:
-            debug_print("  No position with line of sight found, trying standard tactical move")
-            # Fall back to regular tactical position if no line of sight position found
-            best_move = cls._tactical_finder.find_best_tactical_position(
-                enemy, player, obstacles, enemy.moves_left
-            )
-            
-            if best_move:
-                new_pos, path = best_move
-                debug_print(f"  Standard tactical move: {new_pos}")
+            debug_print("  No position with line of sight found, trying to move within courage proximity range")
+            # Try to move within COURAGE_PROXIMITY_RANGE of the player
+            proximity_move = cls._tactical_finder.find_position_within_proximity(
+                enemy, player, obstacles, enemy.moves_left, const.COURAGE_PROXIMITY_RANGE
+            ) if hasattr(cls._tactical_finder, 'find_position_within_proximity') else None
+            if proximity_move:
+                new_pos, path = proximity_move
+                debug_print(f"  Proximity move: {new_pos}")
                 cls._movement_executor.execute_movement(enemy, path, redraw_callback, game_manager)
                 debug_print(f"  Movement executed, enemy now at ({enemy.x}, {enemy.y})")
             else:
-                debug_print("  No tactical position found, trying simple tactical move")
-                moved = cls._tactical_finder.make_simple_tactical_move(
-                    enemy, player, obstacles, redraw_callback
+                debug_print("  No proximity move found, falling back to tactical move")
+                best_move = cls._tactical_finder.find_best_tactical_position(
+                    enemy, player, obstacles, enemy.moves_left
                 )
-                debug_print(f"  Simple move result: {moved}")
-            
+                if best_move:
+                    new_pos, path = best_move
+                    debug_print(f"  Standard tactical move: {new_pos}")
+                    cls._movement_executor.execute_movement(enemy, path, redraw_callback, game_manager)
+                    debug_print(f"  Movement executed, enemy now at ({enemy.x}, {enemy.y})")
+                else:
+                    debug_print("  No tactical position found, trying simple tactical move")
+                    moved = cls._tactical_finder.make_simple_tactical_move(
+                        enemy, player, obstacles, redraw_callback
+                    )
+                    debug_print(f"  Simple move result: {moved}")
         return ai_state
     
     @classmethod
@@ -153,7 +162,15 @@ class AI:
     ) -> str:
         """Execute the shooting phase if we have line of sight."""
         debug_print("Phase 2: Shooting - Checking line of sight")
-        
+
+        # Spend courage for extra shots as long as possible
+        while enemy.courage >= const.COURAGE_BUTTON_COST:
+            used = enemy.use_courage_ability()
+            if used:
+                debug_print(f"AI spent courage for extra shot. Shots left: {enemy.shots_left}, Courage: {enemy.courage}")
+            else:
+                break
+
         if enemy.shots_left <= 0:
             debug_print("  No shots available")
             return const.AI_STATE_THINKING
@@ -163,15 +180,16 @@ class AI:
         debug_print(f"  Can shoot: {can_shoot}")
         
         if can_shoot:
-            debug_print("  -> Taking shot")
+            debug_print("  -> Taking shots for all available shots")
             ai_state = cls._state_manager.transition_to_shooting(redraw_callback)
-            
-            shot_success = cls._projectile_manager.create_projectile(enemy, player, projectiles)
-            debug_print(f"  Shot executed with success: {shot_success}")
-            redraw_callback()
-            pygame.time.delay(const.AI_SHOT_FEEDBACK_DELAY)
+            # Loop through all available shots
+            while enemy.shots_left > 0 and cls._line_of_sight.has_line_of_fire(enemy, player, obstacles):
+                shot_success = cls._projectile_manager.create_projectile(enemy, player, projectiles)
+                debug_print(f"  Shot executed with success: {shot_success}, shots remaining: {enemy.shots_left}")
+                redraw_callback()
+                pygame.time.delay(const.AI_SHOT_FEEDBACK_DELAY)
             return ai_state
-            
+        
         return const.AI_STATE_THINKING
     
     @classmethod

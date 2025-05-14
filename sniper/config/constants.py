@@ -42,28 +42,30 @@ ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 secon
 ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
 ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
 ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
+ROUND_TRANSITION_MAX_TIME = 10000  # Maximum time (10 seconds) a round transition can take before being forced to complete
+POST_ENEMY_DELAY = 1000            # Delay after enemy turn before showing round transition (1 second)
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
-OBSTACLE_COUNT = 20
-BLOCK_MAX_HEALTH = 3              # Maximum health for blocks/obstacles
+OBSTACLE_COUNT = 50
+BLOCK_MAX_HEALTH = 2              # Maximum health for blocks/obstacles
 BLOCK_DAMAGE_PER_HIT = 1          # Damage per projectile hit
 SCENARIO_POPULATION = 20          # Default population count for obstacles in a scenario
 ANIMATION_DELAY = 300
 BLOCK_FADE_DURATION = 500         # Duration for blocks fading out (ms)
 BLOCK_APPEAR_DURATION = 500       # Duration for blocks appearing (ms)
 ROUND_TRANSITION_DELAY = 1000     # Delay between rounds (ms)
-AI_AIMING_DELAY = 500
+AI_AIMING_DELAY = 1000
 AI_SHOOTING_DELAY = 500
 AI_END_TURN_DELAY = 500
-AI_TURN_DELAY = 1500  # Delay before AI takes its turn (milliseconds)
+AI_TURN_DELAY = 500  # Delay before AI takes its turn (milliseconds)
 
 # AI Animation and Timing Constants
 AI_THINKING_DELAY = 300
 AI_END_DELAY = 300
 MOVEMENT_ANIMATION_DELAY = 200
-AI_SHOT_FEEDBACK_DELAY = 400
+AI_SHOT_FEEDBACK_DELAY = 800
 
 # AI Tactical Decision Making Constants
 AI_SCORE_HAS_SHOT = 100       # Score bonus for positions with line of fire
@@ -78,6 +80,25 @@ AI_DIST_PENALTY_FACTOR = 5    # Factor for penalizing excessive distance
 AI_RANDOM_FACTOR = 5          # Random variance to avoid predictability
 AI_OPTIMAL_DIST_MIN = 2       # Minimum preferred distance from player
 AI_OPTIMAL_DIST_MAX = 3       # Maximum preferred distance from player
+
+# Experience System Constants
+EXPERIENCE_HIT_ROCK = 15          # Experience for hitting a rock
+EXPERIENCE_DAMAGE_PLAYER = 25    # Experience for damaging a player
+EXPERIENCE_KILL_PLAYER = 50      # Experience for killing a player
+EXPERIENCE_DESTROY_ELEMENT = 15   # Experience for destroying environmental elements
+
+# Courage System Constants
+COURAGE_MAX = 100                # Maximum courage value
+COURAGE_PROXIMITY_GAIN = 15       # Courage gained per second when near opponent
+COURAGE_PROXIMITY_RANGE = 15      # Grid cells radius for proximity detection
+COURAGE_HIT_ENVIRONMENT = 10      # Courage for destroying environment elements
+COURAGE_KILL_PLAYER = 50         # Courage for killing a player
+COURAGE_BUTTON_COST = 25         # Courage points consumed for extra shot
+COURAGE_DAMAGE_OPPONENT = 15     # Courage gained for hitting an opponent
+COURAGE_BUSH_COST = 10           # Courage cost to place a bush
+
+# Health Regeneration for not moving
+HEALTH_REGEN_NO_MOVE = 15         # Health regained when not moving in a turn
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -106,11 +127,15 @@ ENEMY_START_Y = 5
 BUTTON_HEIGHT = 50
 BUTTON_WIDTH = 200
 BUTTON_SPACING = 20
-HUD_SPACING = 10
+HUD_SPACING = 15
 PROJECTILE_RADIUS = 10
 
 # Debugging control
 DEBUG = 1
+
+# Bush settings
+BUSH_GLOW_MARGIN = 2  # Margin for bush energy field in pixels
+BUSH_HEALTH_DISPLAY = True  # Whether to show bush health
 
 def debug_print(*args, **kwargs):
     """Print debug messages if DEBUG is enabled."""

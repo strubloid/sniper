@@ -19,6 +19,16 @@ class UI:
         self.fonts = fonts
         self.show_commands = False  # Add toggle for commands visibility
         
+        # Load tree image
+        try:
+            self.tree_image = pygame.image.load("assets/tree.png").convert_alpha()
+            # Scale it to fit in a grid cell (slightly smaller than grid size)
+            scale_size = int(const.GRID_SIZE * 0.9)
+            self.tree_image = pygame.transform.scale(self.tree_image, (scale_size, scale_size))
+        except (pygame.error, FileNotFoundError):
+            print("Warning: Could not load tree image, using fallback.")
+            self.tree_image = None
+
     def draw_grid(self) -> None:
         """Draw the game grid with space theme."""
         for x in range(0, const.SCREEN_WIDTH, const.GRID_SIZE):
@@ -297,14 +307,21 @@ class UI:
             )
             
             if obstacle_type == 'bush':
-                # Draw a bush (green circle)
-                pygame.draw.circle(
-                    self.surface, 
-                    (60, 80, 30),  # Dark green
-                    (x * const.GRID_SIZE + const.GRID_SIZE // 2, 
-                     y * const.GRID_SIZE + const.GRID_SIZE // 2),
-                    const.GRID_SIZE // 2 - 2
-                )
+                # Use tree image if loaded
+                if hasattr(self, 'tree_image') and self.tree_image:
+                    # Calculate position to center the tree in the grid cell
+                    tree_pos = (x * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_width()) // 2,
+                                y * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_height()) // 2)
+                    self.surface.blit(self.tree_image, tree_pos)
+                else:
+                    # Fallback to circular bush
+                    pygame.draw.circle(
+                        self.surface, 
+                        (60, 80, 30),  # Dark green
+                        (x * const.GRID_SIZE + const.GRID_SIZE // 2, 
+                        y * const.GRID_SIZE + const.GRID_SIZE // 2),
+                        const.GRID_SIZE // 2 - 2
+                    )
             else:  # crate
                 # Draw a crate (brown rectangle)
                 pygame.draw.rect(
@@ -536,85 +553,186 @@ class UI:
         """Draw the game header with turn indicator and player stats."""
         # Header background - full width bar at top
         header_rect = pygame.Rect(0, 0, const.SCREEN_WIDTH, 40)
-        pygame.draw.rect(self.surface, (35, 35, 45), header_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), header_rect, 2)  # Gold border
+        
+        # Use player's character color for HUD when it's player's turn,
+        # or red when it's enemy's turn
+        if player_turn:
+            # Get player's color from their sniper type
+            player_color = player.sniper_type.color
+            # Create a darker version of the player's color for the background
+            background_color = (
+                max(0, player_color[0] * 0.3),  # R
+                max(0, player_color[1] * 0.3),  # G
+                max(0, player_color[2] * 0.3)   # B
+            )
+            header_text_color = player_color
+        else:
+            # Enemy's turn - use red theme
+            background_color = (50, 10, 10)  # Dark red background
+            header_text_color = const.RED
+        
+        pygame.draw.rect(self.surface, background_color, header_rect)
+        pygame.draw.rect(self.surface, header_text_color, header_rect, 2)  # Border matching text color
         
         # Turn text
         current_player = player if player_turn else "Enemy"
         name = player.sniper_type.name if player_turn else "Enemy"
         header_text = f"{name}'s Turn"
-        text_surf = self.fonts['big'].render(header_text, True, (220, 180, 100))  # Golden color
+        text_surf = self.fonts['big'].render(header_text, True, header_text_color)
         text_rect = text_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 20))
         self.surface.blit(text_surf, text_rect)
         
         # Show moves and shots remaining
         if player_turn:
             stats_text = f"Moves: {player.moves_left} | Shots: {player.shots_left}"
-            stats_surf = self.fonts['normal'].render(stats_text, True, (220, 180, 100))
+            stats_surf = self.fonts['normal'].render(stats_text, True, header_text_color)
             stats_rect = stats_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
             self.surface.blit(stats_surf, stats_rect)
     
-    def draw_player_stats_panel(self, player: Character) -> None:
-        """Draw the player stats panel at the bottom of the screen."""
+    def draw_player_stats_panel(self, player: Character, player_turn: bool = True) -> pygame.Rect:
+        """Draw the player stats panel at the bottom of the screen and return the courage button rect."""
         # Main panel container (spans bottom of screen)
         panel_height = 100
-        main_panel = pygame.Rect(0, const.SCREEN_HEIGHT - panel_height, const.SCREEN_WIDTH, panel_height)
-        
-        # Draw the panel with dark background
-        pygame.draw.rect(self.surface, (35, 35, 45), main_panel)
-        pygame.draw.rect(self.surface, (220, 180, 100), main_panel, 2)  # Gold border
-        
+        panel_top = const.SCREEN_HEIGHT - panel_height
+        main_panel = pygame.Rect(0, panel_top, const.SCREEN_WIDTH, panel_height)
+
+        # Get color based on player's character when it's player's turn, or red for enemy's turn
+        if player_turn:
+            player_color = player.sniper_type.color
+            # Create a darker version of the player's color for the background
+            panel_bg_color = (
+                max(0, player_color[0] * 0.2 + 15),  # R
+                max(0, player_color[1] * 0.2 + 15),  # G
+                max(0, player_color[2] * 0.2 + 15)   # B
+            )
+            panel_border_color = player.sniper_type.color
+        else:
+            # Enemy's turn - use red theme
+            panel_bg_color = (40, 15, 15)  # Dark red background
+            panel_border_color = const.RED
+            
+        # Draw the panel with appropriate background color
+        pygame.draw.rect(self.surface, panel_bg_color, main_panel)
+        pygame.draw.rect(self.surface, panel_border_color, main_panel, 2)  # Border using character color
+
         # LEFT SECTION - Player portrait and stats
         portrait_size = 80
-        portrait_rect = pygame.Rect(10, const.SCREEN_HEIGHT - panel_height + 10, portrait_size, portrait_size)
+        portrait_rect = pygame.Rect(10, panel_top + 10, portrait_size, portrait_size)
         pygame.draw.rect(self.surface, (60, 60, 80), portrait_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), portrait_rect, 2)  # Gold border
-        
+        pygame.draw.rect(self.surface, panel_border_color, portrait_rect, 2)  # Border using character color
+
         # Display player portrait if available
         if hasattr(player, 'sniper_type') and hasattr(player.sniper_type, 'sprite') and player.sniper_type.sprite:
             scaled_sprite = pygame.transform.scale(player.sniper_type.sprite, (portrait_size - 10, portrait_size - 10))
             self.surface.blit(scaled_sprite, (portrait_rect.x + 5, portrait_rect.y + 5))
-        
+
         # Player name just right of the portrait
         stats_x = portrait_rect.right + 20
-        name_text = self.fonts['big'].render(player.sniper_type.name, True, (220, 180, 100))
-        self.surface.blit(name_text, (stats_x, const.SCREEN_HEIGHT - panel_height + 15))
-        
+        name_text = self.fonts['big'].render(player.sniper_type.name, True, panel_border_color)
+        self.surface.blit(name_text, (stats_x, panel_top + 15))
+
         # Health/XP bar - red bar with clear 100/100 styling
         health_width = 150
-        health_rect = pygame.Rect(stats_x, const.SCREEN_HEIGHT - panel_height + 50, health_width, 15)
+        health_rect = pygame.Rect(stats_x, panel_top + 50, health_width, 15)
         pygame.draw.rect(self.surface, (150, 30, 30), health_rect)  # Red background
-        
+
         # Calculate actual health width
         current_health_width = int((player.health / 100) * health_width)
         if current_health_width > 0:
-            current_health_rect = pygame.Rect(stats_x, const.SCREEN_HEIGHT - panel_height + 50, 
+            current_health_rect = pygame.Rect(stats_x, panel_top + 50, 
                                              current_health_width, 15)
             pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
-        
+
         # Health text (100/100) below the bar
         health_text = f"{int(player.health)}/100"
-        health_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
-        self.surface.blit(health_surf, (stats_x, const.SCREEN_HEIGHT - panel_height + 70))
+        health_surf = self.fonts['normal'].render(health_text, True, panel_border_color)
+        self.surface.blit(health_surf, (stats_x, panel_top + 70))
+
+        # COURAGE SECTION
+        courage_x = stats_x + 180
+
+        # Draw "Courage:" label
+        courage_label = self.fonts['normal'].render("Courage", True, panel_border_color)
+        self.surface.blit(courage_label, (courage_x, panel_top + 30))
+
+        # Draw courage bar
+        courage_width = 100
+        courage_height = 15
+        courage_bar_y = panel_top + 50
+        courage_bar_rect = pygame.Rect(courage_x, courage_bar_y, courage_width, courage_height)
+        pygame.draw.rect(self.surface, (50, 50, 80), courage_bar_rect)  # Dark background
+
+        # Draw current courage level
+        current_courage_width = int((player.courage / const.COURAGE_MAX) * courage_width)
+        if current_courage_width > 0:
+            current_courage_rect = pygame.Rect(courage_x, courage_bar_y, current_courage_width, courage_height)
+            pygame.draw.rect(self.surface, (100, 100, 220), current_courage_rect)  # Blue courage bar
+
+        # Display courage value
+        courage_value = str(int(player.courage))
+        courage_text = self.fonts['normal'].render(f"{courage_value}/{const.COURAGE_MAX}", True, panel_border_color)
+        self.surface.blit(courage_text, (courage_x, courage_bar_y + courage_height + 5))
+
+        # Courage Button - circular button to the right of courage bar
+        courage_button_size = 30
+        courage_button_x = courage_x + courage_width + 20
+        # Vertically center button in panel
+        courage_button_y = panel_top + (panel_height - courage_button_size) // 2
+        courage_button_rect = pygame.Rect(
+            courage_button_x, 
+            courage_button_y, 
+            courage_button_size, 
+            courage_button_size
+        )
+
+        # Draw button with different appearance based on whether it's usable
+        button_enabled = player.courage >= const.COURAGE_BUTTON_COST
+        button_color = (100, 100, 220) if button_enabled else (60, 60, 80)  # Blue if enabled, grey if disabled
+        pygame.draw.circle(
+            self.surface, 
+            button_color, 
+            (courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2)), 
+            courage_button_size // 2
+        )
+        pygame.draw.circle(
+            self.surface, 
+            panel_border_color, 
+            (courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2)), 
+            courage_button_size // 2,
+            2  # 2px width border
+        )
+
+        # Draw "+" in the button
+        plus_text = self.fonts['normal'].render("+", True, panel_border_color if button_enabled else (120, 120, 120))
+        plus_rect = plus_text.get_rect(
+            center=(courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2))
+        )
+        self.surface.blit(plus_text, plus_rect)
+
+        # Draw cost tooltip near courage button below the button
+        cost_text = self.fonts['normal'].render(f"{const.COURAGE_BUTTON_COST}", True, panel_border_color if button_enabled else (120, 120, 120))
+        self.surface.blit(cost_text, (courage_button_x, courage_button_y + courage_button_size + 5))  # cost in courage to use + ability
+
+        # CENTER SECTION - Powers - position next to End Turn button
+        # Calculate End Turn left position for alignment
+        button_width = 160
+        end_turn_left = const.SCREEN_WIDTH - button_width - 40
+        # Vertical center of panel
+        center_y = panel_top + panel_height // 2
+        gap = 20  # gap between power section and End Turn button
+
+        # Sniper Power label above, right-aligned just before End Turn
+        header_surf = self.fonts['normal'].render("Sniper Power", True, panel_border_color)
+        header_rect = header_surf.get_rect(midright=(end_turn_left - gap, center_y - 14))
+        self.surface.blit(header_surf, header_rect)
         
-        # Courage value (118) - large number to the right of health
-        courage_value = "118"  # Placeholder for future implementation
-        courage_text = self.fonts['big'].render(courage_value, True, (220, 180, 100))
-        self.surface.blit(courage_text, (stats_x + 100, const.SCREEN_HEIGHT - panel_height + 65))
-        
-        # CENTER SECTION - Powers - moved to better match screenshot
-        # "Sniper Power" header - positioned to the right of portrait/stats
-        power_x = stats_x + 220
-        power_header = self.fonts['normal'].render("Sniper Power", True, (220, 180, 100))
-        self.surface.blit(power_header, (power_x, const.SCREEN_HEIGHT - panel_height + 15))
-        
-        # Selected Power - positioned below header
-        selected_power_text = self.fonts['big'].render("Stealth Shot", True, (220, 180, 100))
-        self.surface.blit(selected_power_text, (power_x, const.SCREEN_HEIGHT - panel_height + 40))
-        
+        # Selected Power text below, same right alignment
+        power_surf = self.fonts['big'].render(player.sniper_type.special_power, True, panel_border_color)
+        power_rect = power_surf.get_rect(midright=(end_turn_left - gap, center_y + 18))
+        self.surface.blit(power_surf, power_rect)
+
         # RIGHT SECTION - Power buttons and End Turn
         # Calculate positions from right to left
-        button_width = 160
         button_height = 40
         end_turn_rect = pygame.Rect(
             const.SCREEN_WIDTH - button_width - 40,  # Right-aligned with 40px margin
@@ -622,94 +740,153 @@ class UI:
             button_width,
             button_height
         )
-        
-        # Power button size
-        power_icon_size = 40
-        
-        # Power 2 button - 40px from End Turn button
-        power2_rect = pygame.Rect(
-            end_turn_rect.left - power_icon_size - 40,  # 40px left of End Turn
-            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
-            power_icon_size, 
-            power_icon_size
-        )
-        pygame.draw.rect(self.surface, (80, 30, 20), power2_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), power2_rect, 2)  # Gold border
-        
-        # Power 1 button - 40px from Power 2 button
-        power1_rect = pygame.Rect(
-            power2_rect.left - power_icon_size - 40,  # 40px left of Power 2
-            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
-            power_icon_size, 
-            power_icon_size
-        )
-        pygame.draw.rect(self.surface, (80, 30, 20), power1_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), power1_rect, 2)  # Gold border
-        
-        # Power labels
-        power1_text = self.fonts['normal'].render("Power 1", True, (220, 180, 100))
-        power1_text_rect = power1_text.get_rect(center=(power1_rect.centerx, power1_rect.bottom + 15))
-        self.surface.blit(power1_text, power1_text_rect)
-        
-        power2_text = self.fonts['normal'].render("Power 2", True, (220, 180, 100))
-        power2_text_rect = power2_text.get_rect(center=(power2_rect.centerx, power2_rect.bottom + 15))
-        self.surface.blit(power2_text, power2_text_rect)
-        
+
         # Draw the End Turn button
         pygame.draw.rect(self.surface, (80, 30, 20), end_turn_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), end_turn_rect, 2)  # Gold border
-        
+        pygame.draw.rect(self.surface, panel_border_color, end_turn_rect, 2)  # Border using character color
+
         # End Turn text
-        end_turn_text = self.fonts['normal'].render("End Turn", True, (220, 180, 100))
+        end_turn_text = self.fonts['normal'].render("End Turn", True, panel_border_color)
         end_turn_text_rect = end_turn_text.get_rect(center=end_turn_rect.center)
         self.surface.blit(end_turn_text, end_turn_text_rect)
+
+        # Return the courage button rect so we can detect clicks on it
+        return courage_button_rect
+
+    def draw_bush_button(self, player: Character, anchor_rect: pygame.Rect) -> pygame.Rect:
+        """Draw the bush ability button next to courage button and return its rect."""
+        # Button dimensions
+        bush_button_size = 30
+        x = anchor_rect.right + 20
+        y = anchor_rect.y
+        bush_rect = pygame.Rect(x, y, bush_button_size, bush_button_size)
+        # Enabled if player has enough courage
+        enabled = player.courage >= const.COURAGE_BUSH_COST
+        button_color = (80, 160, 40) if enabled else (60, 60, 60)
+        # Draw circle button
+        pygame.draw.circle(self.surface, button_color,
+                           (x + bush_button_size//2, y + bush_button_size//2),
+                           bush_button_size//2)
+        pygame.draw.circle(self.surface, (220, 180, 100),
+                           (x + bush_button_size//2, y + bush_button_size//2),
+                           bush_button_size//2, 2)
+        # Draw 'B' for bush
+        letter = self.fonts['normal'].render('B', True, (220, 180, 100) if enabled else (120, 120, 120))
+        letter_rect = letter.get_rect(center=(x + bush_button_size//2, y + bush_button_size//2))
+        self.surface.blit(letter, letter_rect)
+        # Draw cost text
+        cost_text = self.fonts['small'] if hasattr(self.fonts, 'small') else self.fonts['normal']
+        cost = self.fonts['normal'].render(str(const.COURAGE_BUSH_COST), True,
+                                          (220, 180, 100) if enabled else (120, 120, 120))
+        self.surface.blit(cost, (x, y + bush_button_size + 5))  # cost in courage to place bush
+        return bush_rect
     
     def draw_enemy_info_box(self, enemy: Character) -> None:
-        """Draw the enemy info box above the enemy character."""
+        """Draw a compact, rounded enemy info box above the enemy character."""
         # Calculate position above the enemy
-        info_width = 150
-        info_height = 80
-        x = enemy.x * const.GRID_SIZE + const.GRID_SIZE // 2 - info_width // 2
-        y = enemy.y * const.GRID_SIZE - info_height - 10  # Position above character
+        info_width = 120  # Reduced width for more compact display
+        info_height = 70  # Increased height slightly to fit courage bar
+        margin = 4  # Adding a 4px margin as requested
         
-        # Keep box on screen
-        x = max(5, min(x, const.SCREEN_WIDTH - info_width - 5))
-        y = max(40, min(y, const.SCREEN_HEIGHT - info_height - 5))
+        # Convert grid coordinates to pixel coordinates
+        enemy_center_x = enemy.x * const.GRID_SIZE + const.GRID_SIZE // 2
+        enemy_center_y = enemy.y * const.GRID_SIZE + const.GRID_SIZE // 2
         
-        # Draw container
-        info_rect = pygame.Rect(x, y, info_width, info_height)
-        pygame.draw.rect(self.surface, (35, 35, 45), info_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), info_rect, 2)  # Gold border
+        # Position box above enemy with appropriate offset, without the connecting line
+        x = enemy_center_x - info_width // 2
+        y = enemy_center_y - info_height - 20  # More space above character to remove the need for connecting line
         
-        # Enemy name - use actual enemy name if available
+        # Keep box on screen with proper margins
+        x = max(10, min(x, const.SCREEN_WIDTH - info_width - 10))
+        y = max(45, min(y, const.SCREEN_HEIGHT - info_height - 10))
+        
+        # Create a semi-transparent background with rounded corners and margin
+        info_bg = pygame.Surface((info_width + margin*2, info_height + margin*2), pygame.SRCALPHA)
+        
+        # First, draw a rounded rectangle on this surface
+        radius = 10  # Corner radius
+        rect = pygame.Rect(margin, margin, info_width, info_height)
+        
+        # Draw the semi-transparent background with rounded corners
+        pygame.draw.rect(info_bg, (10, 10, 20, 210), rect, border_radius=radius)
+        
+        # Draw a gold border with rounded corners
+        pygame.draw.rect(info_bg, (220, 180, 100), rect, 2, border_radius=radius)
+        
+        # Blit the background to the main surface
+        self.surface.blit(info_bg, (x - margin, y - margin))
+        
+        # Use a smaller font for more compact display
+        small_font = pygame.font.SysFont(None, 20)  # Smaller font size
+        
+        # Enemy name - use actual enemy name if available - now with WHITE color
         name = enemy.sniper_type.name if hasattr(enemy, 'sniper_type') else "Enemy"
-        name_text = self.fonts['normal'].render(name, True, (220, 180, 100))
-        name_rect = name_text.get_rect(center=(x + info_width // 2, y + 15))
+        name_text = small_font.render(name, True, (255, 255, 255))  # Changed to WHITE
+        name_rect = name_text.get_rect(center=(x + info_width // 2, y + 12))
         self.surface.blit(name_text, name_rect)
         
-        # Health bar
-        health_bar_width = 120
-        health_bar_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, y + 30, health_bar_width, 10)
+        # Health bar - smaller and more compact
+        health_bar_width = 90  # Reduced width
+        health_bar_height = 12  # Slightly reduced height for more compact display
+        health_bar_rect = pygame.Rect(
+            x + (info_width - health_bar_width) // 2, 
+            y + 25,  # Adjusted position
+            health_bar_width, 
+            health_bar_height
+        )
         pygame.draw.rect(self.surface, (150, 30, 30), health_bar_rect)  # Red background
         
         # Calculate actual health
         max_health = 100  # Characters are initialized with 100 health
         current_health_width = int((enemy.health / max_health) * health_bar_width)
         if current_health_width > 0:
-            current_health_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, 
-                                             y + 30, current_health_width, 10)
+            current_health_rect = pygame.Rect(
+                x + (info_width - health_bar_width) // 2, 
+                y + 25,
+                current_health_width, 
+                health_bar_height
+            )
             pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
         
-        # Health text - show actual max health instead of hardcoded value
+        # Health text - smaller font and more compact format
+        # Now displayed ON TOP of the health bar with WHITE text
         health_text = f"{int(enemy.health)}/{max_health}"
-        health_text_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
-        health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 30 + 5))
+        health_text_surf = small_font.render(health_text, True, (255, 255, 255))  # Changed to WHITE
+        health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 25 + health_bar_height//2))
         self.surface.blit(health_text_surf, health_text_rect)
         
-        # Special ability - use actual ability if available
+        # Add courage bar - compact format below health bar
+        courage_bar_width = 90  # Same width as health bar
+        courage_bar_height = 12  # Same height as health bar
+        courage_bar_rect = pygame.Rect(
+            x + (info_width - courage_bar_width) // 2, 
+            y + 40,  # Position below health bar
+            courage_bar_width, 
+            courage_bar_height
+        )
+        pygame.draw.rect(self.surface, (50, 50, 80), courage_bar_rect)  # Dark background
+        
+        # Draw current courage level
+        current_courage_width = int((enemy.courage / const.COURAGE_MAX) * courage_bar_width)
+        if current_courage_width > 0:
+            current_courage_rect = pygame.Rect(
+                x + (info_width - courage_bar_width) // 2, 
+                y + 40,
+                current_courage_width, 
+                courage_bar_height
+            )
+            pygame.draw.rect(self.surface, (100, 100, 220), current_courage_rect)  # Blue courage bar
+        
+        # Courage text - displayed ON TOP of the courage bar with WHITE text
+        courage_text = f"{int(enemy.courage)}/{const.COURAGE_MAX}"
+        courage_text_surf = small_font.render(courage_text, True, (255, 255, 255))
+        courage_text_rect = courage_text_surf.get_rect(center=(x + info_width // 2, y + 40 + courage_bar_height//2))
+        self.surface.blit(courage_text_surf, courage_text_rect)
+        
+        # Special ability - smaller font with WHITE text - moved down to accommodate courage bar
         ability_text = enemy.sniper_type.special_power if hasattr(enemy.sniper_type, 'special_power') else "Bouncing Shot"
-        ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
-        ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
+        ability_surf = small_font.render(ability_text, True, (255, 255, 255))
+        ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 58))
         self.surface.blit(ability_surf, ability_rect)
         
     def draw_countdown(self, seconds: int) -> None:
@@ -730,3 +907,43 @@ class UI:
         instruction_surf = self.fonts['big'].render(instruction_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
         instruction_rect = instruction_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2 + 70))
         self.surface.blit(instruction_surf, instruction_rect)
+    
+    def draw_enemy_with_info(self, enemy: Character) -> None:
+        """Draw the enemy info box, then the enemy sprite on top to avoid hiding the character."""
+        self.draw_enemy_info_box(enemy)
+        # Draw the enemy sprite on top of the info box
+        enemy.draw(self.surface)
+    
+    def draw_bush_arrow(self, x: int, y: int, target: Tuple[int, int]) -> None:
+        """Draw an arrow indicating bush placement direction to the target grid cell and show tree image preview."""
+        # Compute start and end positions in pixels (center of grid)
+        start_pos = (x * const.GRID_SIZE + const.GRID_SIZE // 2,
+                     y * const.GRID_SIZE + const.GRID_SIZE // 2)
+        end_pos = (target[0] * const.GRID_SIZE + const.GRID_SIZE // 2,
+                   target[1] * const.GRID_SIZE + const.GRID_SIZE // 2)
+        
+        # Draw line in a space-themed color
+        arrow_color = (80, 200, 255)  # Cyan-like preview
+        pygame.draw.line(self.surface, arrow_color, start_pos, end_pos, 3)
+        
+        # Draw arrowhead
+        dx = end_pos[0] - start_pos[0]
+        dy = end_pos[1] - start_pos[1]
+        length = max(0.01, (dx**2 + dy**2)**0.5)
+        ux, uy = dx/length, dy/length
+        size = 12
+        left = (end_pos[0] - ux * size - uy * size/2, end_pos[1] - uy * size + ux * size/2)
+        right = (end_pos[0] - ux * size + uy * size/2, end_pos[1] - uy * size - ux * size/2)
+        pygame.draw.polygon(self.surface, arrow_color, [end_pos, left, right])
+        
+        # Draw tree preview at the target position
+        if self.tree_image:
+            # Calculate position to center the tree in the target grid cell
+            tree_rect = self.tree_image.get_rect()
+            tree_pos = (target[0] * const.GRID_SIZE + (const.GRID_SIZE - tree_rect.width) // 2,
+                        target[1] * const.GRID_SIZE + (const.GRID_SIZE - tree_rect.height) // 2)
+            
+            # Draw with semi-transparency for preview effect
+            preview_image = self.tree_image.copy()
+            preview_image.set_alpha(150)  # 150/255 opacity
+            self.surface.blit(preview_image, tree_pos)
