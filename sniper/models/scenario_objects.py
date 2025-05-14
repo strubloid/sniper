@@ -186,9 +186,40 @@ class ScenarioManager:
         """Initialize with the given population size."""
         self.population = population
         self.blocks = []
+        # Bush blocks are special obstacles placed by players or AI
+        # Each block may have attributes: is_bush (bool) and owner ('player'/'enemy')
+        for block in self.blocks:
+            setattr(block, 'is_bush', False)
+            setattr(block, 'owner', None)
         self.round_transition_active = False
         self.transition_start_time = 0
         self.fade_phase_complete = False
+        
+        # Load tree image
+        try:
+            self.tree_image = pygame.image.load("assets/tree.png").convert_alpha()
+            # Scale it to fit in a grid cell (slightly smaller than grid size)
+            scale_size = int(const.GRID_SIZE * 0.9)
+            self.tree_image = pygame.transform.scale(self.tree_image, (scale_size, scale_size))
+            self.tree_loaded = True
+        except (pygame.error, FileNotFoundError):
+            print("Warning: Could not load tree image, using fallback.")
+            self.tree_loaded = False
+    
+    def add_bush(self, x: int, y: int, owner: str) -> bool:
+        """
+        Place a bush at the given coordinates for the specified owner ('player' or 'enemy').
+        Returns True if placed successfully.
+        """
+        # Don't place if occupied
+        if any(block.position == (x, y) for block in self.blocks):
+            return False
+        bush = Block(x, y)
+        bush.is_bush = True
+        bush.owner = owner
+        self.blocks.append(bush)
+        debug_print(f"Bush placed at {(x, y)} for {owner}")
+        return True
     
     @property
     def obstacles(self) -> list:
@@ -229,13 +260,26 @@ class ScenarioManager:
             block.start_fade_in()  # Start with fade-in animation
             self.blocks.append(block)
     
-    def handle_projectile_collision(self, x: int, y: int) -> bool:
+    def handle_projectile_collision(self, x: int, y: int, projectile=None) -> bool:
         """
         Handle a projectile collision with a block at the given position.
         Returns True if a collision occurred, False otherwise.
+        
+        Args:
+            x: X position to check
+            y: Y position to check
+            projectile: Optional projectile object that includes owner information
         """
         for block in self.blocks:
             if block.position == (int(x), int(y)) and not block.is_destroyed:
+                # Check if this is a player-owned bush and the shooter is also the player
+                # If so, allow the shot to pass through
+                if getattr(block, 'is_bush', False) and getattr(block, 'owner', None) == 'player' and projectile and getattr(projectile.owner, 'is_player', False):
+                    # Skip collision for player shots hitting player's own bushes
+                    debug_print(f"Player shot passing through player's own bush at {block.position}")
+                    return False
+                
+                # Otherwise, damage the block (whether it's a regular obstacle or an enemy bush)
                 destroyed = block.take_damage(const.BLOCK_DAMAGE_PER_HIT)
                 return True
         return False
@@ -260,30 +304,31 @@ class ScenarioManager:
         """
         if not self.round_transition_active:
             return True
-        
+        # Backup any existing bush blocks so they persist across rounds
+        bush_blocks = [block for block in self.blocks if getattr(block, 'is_bush', False)]
+         
         current_time = time.time() * 1000
-        
+         
         # Phase 1: Wait for all blocks to fade out
         if not self.fade_phase_complete:
             all_faded = all(not block.is_fading for block in self.blocks)
-            
+             
             if all_faded:
                 self.fade_phase_complete = True
-                
+                 
                 # Regenerate blocks with new positions
                 import random
-                
-                # Keep track of which blocks are still "alive"
-                healthy_blocks = [block for block in self.blocks if not block.is_destroyed]
-                destroyed_blocks = [block for block in self.blocks if block.is_destroyed]
-                
-                # Reset block list
-                self.blocks = []
-                
+                 
+                # Keep track of which non-bush blocks are still alive
+                healthy = [b for b in self.blocks if not b.is_destroyed and not getattr(b, 'is_bush', False)]
+                destroyed = [b for b in self.blocks if b.is_destroyed and not getattr(b, 'is_bush', False)]
+                # Reset block list to start fresh, re-add bush blocks
+                self.blocks = list(bush_blocks)
+                 
                 # Make sure positions are integers
                 player_pos_int = (int(player_pos[0]), int(player_pos[1]))
                 enemy_pos_int = (int(enemy_pos[0]), int(enemy_pos[1]))
-                
+                 
                 # Create buffer zones around characters to prevent blocks from being too close
                 protected_positions = [
                     player_pos_int,
@@ -298,61 +343,61 @@ class ScenarioManager:
                     (enemy_pos_int[0], enemy_pos_int[1] + 1),
                     (enemy_pos_int[0], enemy_pos_int[1] - 1),
                 ]
-                
+                 
                 print(f"Protected positions for block generation: {protected_positions}")
-                
-                # Re-add healthy blocks with new positions
+                 
+                # Re-add healthy non-bush blocks with new positions
                 attempts = 0
-                while len(self.blocks) < len(healthy_blocks) and attempts < len(healthy_blocks) * 5:  # Increased attempts
+                while len(self.blocks) < len(healthy) + len(bush_blocks) and attempts < len(healthy) * 5:
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
-                    
+                     
                     # Don't place blocks on players, near players, or on existing blocks
                     if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
-                    
+                     
                     # Create a new block with same health as an old one
-                    if healthy_blocks:
-                        old_block = healthy_blocks.pop(0)
+                    if healthy:
+                        old_block = healthy.pop(0)
                         block = Block(x, y)
                         block.health = old_block.health
                         block.start_fade_in()
                         self.blocks.append(block)
-                
-                # Add destroyed blocks back at full health to maintain population
-                while len(self.blocks) < self.population and attempts < self.population * 5:  # Increased attempts
+                 
+                # Add destroyed non-bush blocks back at full health to maintain population
+                while len(self.blocks) < self.population + len(bush_blocks) and attempts < self.population * 5:
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
-                    
+                     
                     # Don't place blocks on players, near players, or on existing blocks
                     if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
-                    
+                     
                     # Create a new block
                     block = Block(x, y)
                     block.start_fade_in()
                     self.blocks.append(block)
-                
+                 
                 debug_print(f"Regenerated {len(self.blocks)} blocks, starting fade in phase")
-        
+         
         # Phase 2: Wait for all blocks to fade in
         else:
             # Check if all blocks have completed their fade-in animation
             all_appeared = all(not block.is_appearing for block in self.blocks)
-            
+             
             # Check if enough time has passed since transition start
             elapsed = current_time - self.transition_start_time
             time_complete = elapsed >= (const.BLOCK_FADE_DURATION + const.ROUND_TRANSITION_DELAY + const.BLOCK_APPEAR_DURATION)
-            
+             
             if all_appeared and time_complete:
                 self.round_transition_active = False
                 debug_print("Round transition complete")
                 return True
-        
+         
         return False
     
     def update_animations(self) -> None:
@@ -363,9 +408,48 @@ class ScenarioManager:
     def draw(self, surface: pygame.Surface) -> None:
         """Draw all blocks with their appropriate visual state."""
         for block in self.blocks:
-            # Skip drawing destroyed blocks unless they're fading out
+            if getattr(block, 'is_bush', False):
+                # Draw tree image for bushes if available, otherwise use the space-themed bush with glow effect
+                x, y = block.position
+                if hasattr(self, 'tree_loaded') and self.tree_loaded and self.tree_image:
+                    # Calculate position to center the tree in the grid cell
+                    tree_pos = (x * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_width()) // 2,
+                                y * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_height()) // 2)
+                    
+                    # Add a slight glow effect based on owner
+                    tint = (80, 200, 255) if block.owner == 'player' else (200, 100, 255)
+                    # Create glow surface
+                    glow_size = const.GRID_SIZE + 10
+                    glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
+                    
+                    # Draw glow circles
+                    center = (glow_size // 2, glow_size // 2)
+                    for i in range(3, 0, -1):
+                        glow_radius = const.GRID_SIZE // 2 + i * 2
+                        glow_color = (*tint, 30)
+                        pygame.draw.circle(glow_surface, glow_color, center, glow_radius)
+                    
+                    # Draw the glow around the tree
+                    glow_pos = (x * const.GRID_SIZE - 5, y * const.GRID_SIZE - 5)
+                    surface.blit(glow_surface, glow_pos)
+                    
+                    # Draw the tree image
+                    surface.blit(self.tree_image, tree_pos)
+                else:
+                    # Fallback to original circular bush
+                    center = (x * const.GRID_SIZE + const.GRID_SIZE//2, y * const.GRID_SIZE + const.GRID_SIZE//2)
+                    # Color tint based on owner
+                    tint = (80, 200, 255) if block.owner == 'player' else (200, 100, 255)
+                    # Outer glow layers
+                    for i in range(3, 0, -1):
+                        glow_radius = const.GRID_SIZE//2 - 2 + i*3
+                        glow_color = (*tint, 30)
+                        pygame.draw.circle(surface, glow_color, center, glow_radius)
+                    # Solid core
+                    pygame.draw.circle(surface, tint, center, const.GRID_SIZE//2 - 5)
+                continue
+            # Skip destroyed blocks unless fading
             if block.is_destroyed and not block.is_fading:
                 continue
-                
-            # Draw the block
+            # Draw normal block
             block.draw(surface)

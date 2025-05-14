@@ -50,6 +50,8 @@ class AI:
         
         # Ensure enemy stats are reset for this turn
         enemy.start_turn()
+        # Track initial moves to detect no movement
+        initial_moves = enemy.moves_left
         
         # Initialize AI state and show thinking animation
         ai_state = cls._state_manager.transition_to_thinking(redraw_callback)
@@ -88,6 +90,10 @@ class AI:
             print(f"AI ERROR TRACEBACK: {traceback.format_exc()}")
             ai_state = const.AI_STATE_END
         
+        # Health regen for no movement
+        if enemy.health > 0 and enemy.moves_left == initial_moves:
+            enemy.health = min(100, enemy.health + const.HEALTH_REGEN_NO_MOVE)
+            debug_print(f"Enemy regenerated {const.HEALTH_REGEN_NO_MOVE} health for not moving.")
         # Reset enemy movement and shots at end of turn
         enemy.moves_left = 0
         enemy.shots_left = 0

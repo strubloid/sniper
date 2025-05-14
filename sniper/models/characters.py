@@ -41,11 +41,23 @@ class Character:
         # Courage system
         self.courage = 0  # Start with 0 courage
         self.last_proximity_time = 0  # Track when courage was last gained from proximity
+        # Facing direction for abilities (dx, dy)
+        self.facing = (0, -1)
     
     def start_turn(self):
         """Reset character for a new turn."""
         self.moves_left = self.sniper_type.move_limit
         self.shots_left = 1  # Default is 1 shot per turn
+    
+    def use_bush_ability(self) -> bool:
+        """
+        Consume courage to place a bush. Returns True if used.
+        """
+        from sniper.config.constants import const
+        if self.courage >= const.COURAGE_BUSH_COST:
+            self.courage -= const.COURAGE_BUSH_COST
+            return True
+        return False
     
     def draw(self, surface: pygame.Surface) -> None:
         """Draw the character on the surface."""

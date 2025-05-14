@@ -64,7 +64,7 @@ AI_TURN_DELAY = 1000  # Delay before AI takes its turn (milliseconds)
 AI_THINKING_DELAY = 300
 AI_END_DELAY = 300
 MOVEMENT_ANIMATION_DELAY = 200
-AI_SHOT_FEEDBACK_DELAY = 400
+AI_SHOT_FEEDBACK_DELAY = 800
 
 # AI Tactical Decision Making Constants
 AI_SCORE_HAS_SHOT = 100       # Score bonus for positions with line of fire
@@ -93,6 +93,11 @@ COURAGE_PROXIMITY_RANGE = 15      # Grid cells radius for proximity detection
 COURAGE_HIT_ENVIRONMENT = 10      # Courage for destroying environment elements
 COURAGE_KILL_PLAYER = 50         # Courage for killing a player
 COURAGE_BUTTON_COST = 25         # Courage points consumed for extra shot
+COURAGE_DAMAGE_OPPONENT = 15     # Courage gained for hitting an opponent
+COURAGE_BUSH_COST = 10           # Courage cost to place a bush
+
+# Health Regeneration for not moving
+HEALTH_REGEN_NO_MOVE = 15         # Health regained when not moving in a turn
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

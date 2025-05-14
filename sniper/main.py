@@ -65,6 +65,10 @@ class GameManager:
         self.in_round_transition = False  # Track if we're in a round transition
         self.winner = None
         self.show_debug = False
+        # Bush button rect for UI
+        self.bush_button_rect = None
+        # Bush placement mode
+        self.bush_mode = False
         self.ai_state = None
         self.scores = []
         
@@ -266,6 +270,21 @@ class GameManager:
     
     def _handle_gameplay_click(self, pos, grid_x, grid_y):
         """Handle clicks during gameplay."""
+        # Bush placement mode: click on adjacent grid to place bush
+        if self.bush_mode:
+            # Check adjacency
+            dx = grid_x - self.player.x
+            dy = grid_y - self.player.y
+            if abs(dx) + abs(dy) == 1:
+                # Attempt ability and placement
+                if self.player.use_bush_ability() and self.scenario.add_bush(grid_x, grid_y, 'player'):
+                    debug_print(f"Bush placed at ({grid_x},{grid_y})")
+                else:
+                    debug_print(f"Failed to place bush at ({grid_x},{grid_y})")
+            else:
+                debug_print("Invalid bush placement location")
+            self.bush_mode = False
+            return
         if self.shoot_mode and self.player.shots_left > 0:
             self._handle_shooting(pos)
             self.shoot_mode = False
@@ -281,6 +300,16 @@ class GameManager:
                 # Check if destination has an obstacle
                 has_obstacle = (self.scenario and self.scenario.is_obstacle(grid_x, grid_y))
                 if not has_obstacle:  # Only move if there's no obstacle
+                    # Update facing direction based on movement
+                    old_x, old_y = self.player.x, self.player.y
+                    dx_move = grid_x - old_x
+                    dy_move = grid_y - old_y
+                    # Normalize facing to cardinal
+                    if abs(dx_move) > abs(dy_move):
+                        self.player.facing = (1 if dx_move > 0 else -1, 0)
+                    else:
+                        self.player.facing = (0, 1 if dy_move > 0 else -1)
+                    # Apply movement
                     self.player.x, self.player.y = grid_x, grid_y
                     self.player.moves_left -= dist
                     self.player.health -= dist * const.HEALTH_DAMAGE_PER_MOVE
@@ -290,11 +319,17 @@ class GameManager:
                     if self.player.health <= 0:
                         self.player.health = 0  # Clamp health to zero
                         self._end_game("AI")
+        elif self.bush_button_rect and self.bush_button_rect.collidepoint(pos):
+            # Activate bush placement mode for two-step placement
+            if self.player.courage >= const.COURAGE_BUSH_COST:
+                self.bush_mode = True
+                debug_print("Bush placement mode activated")
+            else:
+                debug_print("Not enough courage to use bush ability")
         elif self.courage_button_rect and self.courage_button_rect.collidepoint(pos):
             # Handle courage button click - grant extra shot if player has enough courage
             if self.player.use_courage_ability():
                 debug_print(f"Courage ability used: +1 shot added (current shots: {self.player.shots_left})")
-                # Could add visual effect here to show the ability activation
 
     def _handle_shooting(self, mouse_pos):
         """Handle shooting based on mouse direction."""
@@ -335,7 +370,7 @@ class GameManager:
             if not (0 <= p.x < const.GRID_WIDTH and 0 <= p.y < const.GRID_HEIGHT):
                 self.projectiles.remove(p)
             # Check for collision with obstacle
-            elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y)):
+            elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y), p):
                 # Grant experience/courage for hitting environment
                 shooter = p.owner
                 if shooter:
@@ -601,7 +636,10 @@ class GameManager:
                         if self.game_state == const.STATE_PLAY:
                             if (end_turn_button_rect and end_turn_button_rect.collidepoint(virtual_mouse_pos) 
                                     and self.player_turn):
-                                # End Turn button clicked
+                                # Regenerate health if no movement this turn
+                                if self.player.moves_left == self.player.sniper_type.move_limit:
+                                    self.player.health = min(100, self.player.health + const.HEALTH_REGEN_NO_MOVE)
+                                    debug_print(f"Player regenerated {const.HEALTH_REGEN_NO_MOVE} health for not moving.")
                                 self.player.moves_left = 0
                                 self.player.shots_left = 0
                                 
@@ -650,6 +688,8 @@ class GameManager:
             if self.game_state == const.STATE_PLAY:
                 if self.shoot_mode:
                     self.shoot_mode = False
+                elif self.bush_mode:
+                    self.bush_mode = False
                 elif self.player.show_range:
                     self.player.show_range = False
             elif self.game_state in (const.STATE_SCOREBOARD, const.STATE_GAME_OVER):
@@ -707,20 +747,24 @@ class GameManager:
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
         
-        # Draw shooting arrow
+        # Draw shooting arrow or bush placement arrow
+        actual_mouse_pos = pygame.mouse.get_pos()
+        virtual_mouse_pos = (
+            actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
+            actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
+        )
+        # Convert to grid coordinates for bush preview
+        target_grid = (int(virtual_mouse_pos[0] // const.GRID_SIZE), int(virtual_mouse_pos[1] // const.GRID_SIZE))
+        # Shooting arrow
         if self.shoot_mode and self.player.shots_left > 0:
-            # Get actual mouse position and convert to virtual screen coordinates
-            actual_mouse_pos = pygame.mouse.get_pos()
-            virtual_mouse_pos = (
-                actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
-                actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
-            )
-            
-            # Only draw the arrow if the mouse is within the virtual screen
-            if (0 <= virtual_mouse_pos[0] < const.SCREEN_WIDTH and 
-                0 <= virtual_mouse_pos[1] < const.SCREEN_HEIGHT):
+            if (0 <= virtual_mouse_pos[0] < const.SCREEN_WIDTH and 0 <= virtual_mouse_pos[1] < const.SCREEN_HEIGHT):
                 self.ui.draw_shooting_arrow(self.player.x, self.player.y, virtual_mouse_pos)
-            
+        # Bush placement preview
+        elif self.bush_mode:
+            gx, gy = target_grid
+            if 0 <= gx < const.GRID_WIDTH and 0 <= gy < const.GRID_HEIGHT:
+                self.ui.draw_bush_arrow(self.player.x, self.player.y, (gx, gy))
+        
         # Process projectile logic
         self.handle_projectile_logic()
         
@@ -730,8 +774,11 @@ class GameManager:
         
         # 2. Player stats panel at the bottom - get the courage button rect
         courage_button_rect = self.ui.draw_player_stats_panel(self.player)
-        # Store the courage button rect for click detection
+        # Store courage button rect for click detection
         self.courage_button_rect = courage_button_rect
+        # Draw bush button next to courage and store rect
+        bush_button_rect = self.ui.draw_bush_button(self.player, courage_button_rect)
+        self.bush_button_rect = bush_button_rect
         
         # Draw instructions (only if toggled on)
         self.ui.draw_instructions()
