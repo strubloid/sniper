@@ -76,6 +76,10 @@ class GameManager:
         self.round_transition_start_time = 0
         self.show_countdown = False
         
+        # Post-enemy turn delay tracking
+        self.post_enemy_delay = False
+        self.post_enemy_delay_start = 0
+        
         # Load sniper types
         self.sniper_types = self._load_sniper_types()
     
@@ -410,18 +414,11 @@ class GameManager:
         # Reset AI turn state
         self.ai_turn_started = False
         
-        # Check if a new round should be started
-        if self.player and self.enemy:
-            # Start round transition after each complete turn (player + AI)
-            self.start_round_transition()
-            debug_print(f"Starting round transition after AI turn. New round will be {self.round_number}")
-        else:
-            # Fallback: start player's turn directly if characters aren't initialized
-            self.player_turn = True
-            if self.player:
-                self.player.start_turn()
-            
-        debug_print(f"AI turn finalized. player_turn={self.player_turn}, round={self.round_number}")
+        # Start post-enemy turn delay
+        self.post_enemy_delay = True
+        self.post_enemy_delay_start = pygame.time.get_ticks()
+        
+        debug_print(f"AI turn finalized. Starting post-enemy turn delay.")
 
     def _redraw_during_ai_turn(self):
         """Redraw the game state during AI animations."""
@@ -700,7 +697,16 @@ class GameManager:
             
         # Handle AI turn when it's not the player's turn and we're not in round transition
         elif not self.player_turn and not self.in_round_transition:
-            self.enemy_turn()
+            if self.post_enemy_delay:
+                current_time = pygame.time.get_ticks()
+                if current_time - self.post_enemy_delay_start >= const.POST_ENEMY_DELAY:
+                    # After the delay, start the round transition
+                    self.post_enemy_delay = False
+                    # Start round transition with new round number
+                    self.start_round_transition()
+                    debug_print(f"Post-enemy delay complete. Starting round transition to Round {self.round_number}")
+            else:
+                self.enemy_turn()
 
 
 def main():
