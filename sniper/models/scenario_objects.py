@@ -59,7 +59,7 @@ class Block:
         Apply damage to the asteroid and return True if the asteroid is destroyed.
         """
         self.health -= damage
-        # debug_print(f"Asteroid at {self.position} took damage. Health: {self.health}")
+        debug_print(f"Asteroid at {self.position} took damage. Health: {self.health}")
         return self.is_destroyed
     
     def start_fade_out(self):
@@ -67,7 +67,7 @@ class Block:
         self.is_fading = True
         self.is_appearing = False
         self.animation_start_time = time.time() * 1000  # Current time in ms
-        # debug_print(f"Asteroid at {self.position} starting fade out")
+        debug_print(f"Asteroid at {self.position} starting fade out")
     
     def start_fade_in(self):
         """Start the fade in animation."""
@@ -75,7 +75,7 @@ class Block:
         self.is_fading = False
         self.animation_start_time = time.time() * 1000  # Current time in ms
         self.alpha = 0  # Start completely transparent
-        # debug_print(f"Asteroid at {self.position} starting fade in")
+        debug_print(f"Asteroid at {self.position} starting fade in")
     
     def update_animation(self) -> bool:
         """
@@ -355,6 +355,11 @@ class ScenarioManager:
         
         return False
     
+    def update_animations(self) -> None:
+        """Update all animation states for blocks without redrawing them."""
+        for block in self.blocks:
+            block.update_animation()
+    
     def draw(self, surface: pygame.Surface) -> None:
         """Draw all blocks with their appropriate visual state."""
         for block in self.blocks:
@@ -362,8 +367,5 @@ class ScenarioManager:
             if block.is_destroyed and not block.is_fading:
                 continue
                 
-            # Update animation state
-            block.update_animation()
-            
             # Draw the block
             block.draw(surface)

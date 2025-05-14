@@ -124,8 +124,15 @@ class GameManager:
             self.show_countdown = True
             debug_print(f"Starting Round {self.round_number}")
             
-            # Start the block fade out/in transition
-            self.scenario.start_round_transition()
+            # Explicitly force a round transition with new asteroid positions
+            if self.scenario:
+                self.scenario.start_round_transition()
+                # Force the round transition to be active
+                self.scenario.round_transition_active = True
+                # Reset the phase for proper transition
+                self.scenario.fade_phase_complete = False
+                
+            debug_print("Round transition started - asteroids will regenerate")
     
     def update_round_transition(self):
         """Update the round transition animation and return True when complete."""
@@ -403,17 +410,18 @@ class GameManager:
         # Reset AI turn state
         self.ai_turn_started = False
         
-        # After the enemy's turn, switch to player's turn
-        # But first check if we're in the first round or not
-        if self.round_number < 2:  # First round
-            # Start player's turn immediately after AI's turn in first round
-            self.player_turn = True
-            self.player.start_turn()
-        else:
-            # Start round transition only after both player and AI have taken their turns
+        # Check if a new round should be started
+        if self.player and self.enemy:
+            # Start round transition after each complete turn (player + AI)
             self.start_round_transition()
+            debug_print(f"Starting round transition after AI turn. New round will be {self.round_number}")
+        else:
+            # Fallback: start player's turn directly if characters aren't initialized
+            self.player_turn = True
+            if self.player:
+                self.player.start_turn()
             
-        print(f"AI turn finalized. player_turn={self.player_turn}, round={self.round_number}")
+        debug_print(f"AI turn finalized. player_turn={self.player_turn}, round={self.round_number}")
 
     def _redraw_during_ai_turn(self):
         """Redraw the game state during AI animations."""
@@ -621,6 +629,10 @@ class GameManager:
         # Draw grid on top of space background
         self.ui.draw_grid()
         
+        # Update asteroid animations - add this line to continuously update animations
+        if self.scenario:
+            self.scenario.update_animations()
+        
         # Draw scenario objects (asteroids) with health and animations
         self.ui.draw_scenario(self.scenario)
         
@@ -683,8 +695,8 @@ class GameManager:
             transition_complete = self.update_round_transition()
             if self.show_countdown:
                 elapsed_time = pygame.time.get_ticks() - self.round_transition_start_time
-                countdown_value = max(0, const.ROUND_TRANSITION_COUNTDOWN - elapsed_time // 1000)
-                self.ui.draw_countdown(countdown_value)
+                countdown_value = max(1, const.ROUND_TRANSITION_COUNTDOWN - elapsed_time // 1000)
+                self.ui.draw_countdown(self.round_number)
             
         # Handle AI turn when it's not the player's turn and we're not in round transition
         elif not self.player_turn and not self.in_round_transition:
