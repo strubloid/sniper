@@ -24,10 +24,15 @@ class ProjectileManager:
         
         # Create projectile if we have a valid direction
         if dx != 0 or dy != 0:
-            debug_print(f"AI SHOOTING in direction ({dx}, {dy}) from ({shooter.x}, {shooter.y})")
+            # Start projectile slightly ahead of the enemy in the firing direction
+            # This prevents the enemy from getting hit by its own projectile
+            spawn_x = shooter.x + (0.5 * dx)
+            spawn_y = shooter.y + (0.5 * dy)
+            
+            debug_print(f"AI SHOOTING in direction ({dx}, {dy}) from ({spawn_x}, {spawn_y})")
             projectiles.append(
                 Projectile(
-                    shooter.x, shooter.y, dx, dy, 
+                    spawn_x, spawn_y, dx, dy, 
                     shooter.sniper_type.color, shooter
                 )
             )
