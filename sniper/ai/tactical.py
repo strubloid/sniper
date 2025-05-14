@@ -23,28 +23,45 @@ class LineOfSightCalculator:
         shooter_x, shooter_y = int(shooter.x), int(shooter.y)
         target_x, target_y = int(target.x), int(target.y)
         
-        # Direct hit check - must be in same row or column for orthogonal movement
-        if shooter_x != target_x and shooter_y != target_y:
-            debug_print("Line of fire result: False (not orthogonal)")
-            return False
+        # Allow shooting in straight lines (orthogonal and diagonal)
+        if shooter_x == target_x or shooter_y == target_y or abs(shooter_x - target_x) == abs(shooter_y - target_y):
+            debug_print("Target is in a shootable line")
+            
+            # Check for obstacles between shooter and target
+            if shooter_x == target_x:  # Same column
+                start_y, end_y = min(shooter_y, target_y), max(shooter_y, target_y)
+                for y in range(start_y + 1, end_y):
+                    if (shooter_x, y) in obstacles:
+                        debug_print(f"Line of fire blocked by obstacle at ({shooter_x}, {y})")
+                        return False
+                        
+            elif shooter_y == target_y:  # Same row
+                start_x, end_x = min(shooter_x, target_x), max(shooter_x, target_x)
+                for x in range(start_x + 1, end_x):
+                    if (x, shooter_y) in obstacles:
+                        debug_print(f"Line of fire blocked by obstacle at ({x}, {shooter_y})")
+                        return False
+                        
+            else:  # Diagonal
+                # Calculate step direction
+                x_step = 1 if target_x > shooter_x else -1
+                y_step = 1 if target_y > shooter_y else -1
+                
+                # Check each position along diagonal
+                x, y = shooter_x + x_step, shooter_y + y_step
+                while x != target_x and y != target_y:
+                    if (x, y) in obstacles:
+                        debug_print(f"Line of fire blocked by obstacle at ({x}, {y})")
+                        return False
+                    x += x_step
+                    y += y_step
+            
+            # If we get here, there's a clear line of fire
+            debug_print("Line of fire result: True (clear shot)")
+            return True
         
-        # Check for obstacles between shooter and target
-        if shooter_x == target_x:  # Same column
-            start_y, end_y = min(shooter_y, target_y), max(shooter_y, target_y)
-            for y in range(start_y + 1, end_y):
-                if (shooter_x, y) in obstacles:
-                    debug_print(f"Line of fire blocked by obstacle at ({shooter_x}, {y})")
-                    return False
-        else:  # Same row
-            start_x, end_x = min(shooter_x, target_x), max(shooter_x, target_x)
-            for x in range(start_x + 1, end_x):
-                if (x, shooter_y) in obstacles:
-                    debug_print(f"Line of fire blocked by obstacle at ({x}, {shooter_y})")
-                    return False
-        
-        # If we reach here, there's a clear line of fire
-        debug_print("Line of fire result: True (clear shot)")
-        return True
+        debug_print("Line of fire result: False (not in a shootable line)")
+        return False
 
 
 class TacticalPositionFinder:

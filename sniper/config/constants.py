@@ -23,11 +23,37 @@ RED = (200, 50, 50)
 GREEN = (0, 255, 0)
 BLUE = (100, 100, 255, 100)
 
+# Space theme colors
+SPACE_BG = (10, 10, 25)       # Deep space background
+SPACE_GRID = (30, 30, 50)     # Subtle grid lines
+
+# Asteroid colors (replacing block health colors)
+ASTEROID_HEALTHY = (110, 100, 90)    # Healthy asteroid
+ASTEROID_DAMAGED = (130, 90, 70)     # Damaged asteroid
+ASTEROID_CRITICAL = (150, 70, 60)    # Critically damaged asteroid
+
+# Block health colors (renamed but kept for backwards compatibility)
+BLOCK_HEALTHY = ASTEROID_HEALTHY
+BLOCK_DAMAGED = ASTEROID_DAMAGED
+BLOCK_CRITICAL = ASTEROID_CRITICAL
+
+# Round transition settings
+ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 seconds)
+ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
+ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
+ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
+
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
 OBSTACLE_COUNT = 20
+BLOCK_MAX_HEALTH = 3              # Maximum health for blocks/obstacles
+BLOCK_DAMAGE_PER_HIT = 1          # Damage per projectile hit
+SCENARIO_POPULATION = 20          # Default population count for obstacles in a scenario
 ANIMATION_DELAY = 300
+BLOCK_FADE_DURATION = 500         # Duration for blocks fading out (ms)
+BLOCK_APPEAR_DURATION = 500       # Duration for blocks appearing (ms)
+ROUND_TRANSITION_DELAY = 1000     # Delay between rounds (ms)
 AI_AIMING_DELAY = 500
 AI_SHOOTING_DELAY = 500
 AI_END_TURN_DELAY = 500
@@ -81,7 +107,7 @@ BUTTON_HEIGHT = 50
 BUTTON_WIDTH = 200
 BUTTON_SPACING = 20
 HUD_SPACING = 10
-PROJECTILE_RADIUS = 6
+PROJECTILE_RADIUS = 10
 
 # Debugging control
 DEBUG = 1

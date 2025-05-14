@@ -20,14 +20,44 @@ class UI:
         self.show_commands = False  # Add toggle for commands visibility
         
     def draw_grid(self) -> None:
-        """Draw the game grid."""
+        """Draw the game grid with space theme."""
         for x in range(0, const.SCREEN_WIDTH, const.GRID_SIZE):
-            pygame.draw.line(self.surface, const.GRAY, (x, 0), (x, const.SCREEN_HEIGHT))
+            # Lighter grid lines
+            pygame.draw.line(self.surface, const.SPACE_GRID, (x, 0), (x, const.SCREEN_HEIGHT))
         for y in range(0, const.SCREEN_HEIGHT, const.GRID_SIZE):
-            pygame.draw.line(self.surface, const.GRAY, (0, y), (const.SCREEN_WIDTH, y))
-    
+            pygame.draw.line(self.surface, const.SPACE_GRID, (0, y), (const.SCREEN_WIDTH, y))
+            
+    def draw_space_background(self):
+        """Draw the space background with stars."""
+        # Fill with deep space color
+        self.surface.fill(const.SPACE_BG)
+        
+        # Draw stars if we haven't generated them yet
+        if not hasattr(self, '_stars'):
+            import random
+            self._stars = []
+            # Generate 100 stars with random positions and sizes
+            for _ in range(100):
+                x = random.randint(0, const.SCREEN_WIDTH)
+                y = random.randint(0, const.SCREEN_HEIGHT)
+                size = random.randint(1, 2)
+                brightness = random.randint(150, 255)
+                self._stars.append((x, y, size, brightness))
+        
+        # Draw stars
+        for x, y, size, brightness in self._stars:
+            pygame.draw.circle(
+                self.surface, 
+                (brightness, brightness, brightness), 
+                (x, y), 
+                size
+            )
+            
     def draw_obstacles(self, obstacles: List[Tuple[int, int]]) -> None:
-        """Draw obstacles on the grid."""
+        """
+        Draw obstacles on the grid.
+        This is used when we have a simple list of obstacle positions.
+        """
         for x, y in obstacles:
             rect = pygame.Rect(
                 x * const.GRID_SIZE, 
@@ -36,6 +66,21 @@ class UI:
                 const.GRID_SIZE
             )
             pygame.draw.rect(self.surface, const.GRAY, rect)
+            
+    def draw_scenario(self, scenario_manager) -> None:
+        """
+        Draw the scenario objects with their visual states and animations.
+        This should be used instead of draw_obstacles when using ScenarioManager.
+        """
+        if scenario_manager:
+            scenario_manager.draw(self.surface)
+            
+    def draw_round_info(self, round_number: int) -> None:
+        """Draw round information at the top right of the screen."""
+        round_text = f"Round: {round_number}"
+        text_surf = self.fonts['normal'].render(round_text, True, (220, 180, 100))
+        text_rect = text_surf.get_rect(topright=(const.SCREEN_WIDTH - 10, 10))
+        self.surface.blit(text_surf, text_rect)
     
     def draw_projectiles(self, projectiles: List[Projectile]) -> None:
         """Draw active projectiles."""
@@ -171,12 +216,34 @@ class UI:
     
     def draw_debug_info(self, ai_state: Optional[str] = None) -> None:
         """Draw debug information."""
-        if not ai_state:
-            return
+        # Create a semi-transparent background for the debug info
+        debug_bg = pygame.Rect(10, const.SCREEN_HEIGHT - 150, 300, 140)
+        bg_surface = pygame.Surface((debug_bg.width, debug_bg.height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))  # Semi-transparent black
+        self.surface.blit(bg_surface, debug_bg)
+        
+        # Show AI state status
+        y_offset = const.SCREEN_HEIGHT - 145
+        
+        # Display AI state
+        if ai_state:
+            text = f"AI State: {ai_state}"
+            text_surf = self.fonts['normal'].render(text, True, (220, 180, 100))  # Golden color for visibility
+            self.surface.blit(text_surf, (15, y_offset))
+            y_offset += 25
             
-        text = f"AI State: {ai_state}"
-        text_surf = self.fonts['normal'].render(text, True, const.WHITE)
-        self.surface.blit(text_surf, (10, const.SCREEN_HEIGHT - 100))
+        # Display additional debug information
+        debug_lines = [
+            f"FPS: {int(pygame.time.Clock().get_fps())}",
+            f"Debug Mode: ON",
+            f"Round Animation Active: {hasattr(pygame, 'ScenarioManager') and getattr(pygame.ScenarioManager, 'round_transition_active', False)}",
+            f"Asteroid Count: {len([b for b in getattr(pygame, 'blocks', []) if not getattr(b, 'is_destroyed', True)])}"
+        ]
+        
+        for line in debug_lines:
+            text_surf = self.fonts['normal'].render(line, True, (220, 180, 100))
+            self.surface.blit(text_surf, (15, y_offset))
+            y_offset += 20
     
     def draw_instructions(self) -> None:
         """Draw game instructions."""
@@ -644,3 +711,22 @@ class UI:
         ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
         ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
         self.surface.blit(ability_surf, ability_rect)
+        
+    def draw_countdown(self, seconds: int) -> None:
+        """Draw a round transition countdown in the center of the screen."""
+        # Create a semi-transparent overlay
+        overlay = pygame.Surface((const.SCREEN_WIDTH, const.SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill(const.ROUND_TRANSITION_BG_COLOR)
+        self.surface.blit(overlay, (0, 0))
+        
+        # Draw the round number
+        round_text = f"Round {seconds}"
+        round_surf = self.fonts['huge'].render(round_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
+        round_rect = round_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2))
+        self.surface.blit(round_surf, round_rect)
+        
+        # Draw a smaller instruction text below
+        instruction_text = "Get ready..."
+        instruction_surf = self.fonts['big'].render(instruction_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
+        instruction_rect = instruction_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2 + 70))
+        self.surface.blit(instruction_surf, instruction_rect)

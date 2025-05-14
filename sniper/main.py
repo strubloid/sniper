@@ -10,7 +10,7 @@ import random
 import pygame
 
 from sniper.config.constants import const, debug_print
-from sniper.models import SniperType, Character, Projectile
+from sniper.models import SniperType, Character, Projectile, ScenarioManager
 from sniper.ui import UI
 from sniper.ai import AI
 from sniper.utils import load_image
@@ -43,7 +43,8 @@ class GameManager:
         # Set up fonts
         self.fonts = {
             'normal': pygame.font.SysFont(None, 24),
-            'big': pygame.font.SysFont(None, 48)
+            'big': pygame.font.SysFont(None, 48),
+            'huge': pygame.font.SysFont(None, 96)  # For round transition countdown
         }
         
         # Create UI manager
@@ -59,7 +60,9 @@ class GameManager:
         self.show_confirm_popup = False
         self.player_turn = True
         self.shoot_mode = False
-        self.obstacles = []
+        self.scenario = None  # ScenarioManager instance
+        self.round_number = 1  # Track the current round number
+        self.in_round_transition = False  # Track if we're in a round transition
         self.winner = None
         self.show_debug = False
         self.ai_state = None
@@ -68,6 +71,10 @@ class GameManager:
         # AI turn handling
         self.ai_turn_started = False
         self.ai_turn_time = 0
+        
+        # Round transition countdown
+        self.round_transition_start_time = 0
+        self.show_countdown = False
         
         # Load sniper types
         self.sniper_types = self._load_sniper_types()
@@ -98,17 +105,57 @@ class GameManager:
         return sniper_types
 
     def start_game(self):
-        """Start a new game by generating obstacles."""
-        self.obstacles = self._generate_obstacles(self.player, self.enemy)
+        """Start a new game by initializing the scenario."""
+        # Initialize scenario with default population
+        self.scenario = ScenarioManager(const.SCENARIO_POPULATION)
         
-    def _generate_obstacles(self, player: Character, enemy: Character) -> list:
-        """Generate random obstacles for the game map."""
-        obstacles = []
-        for _ in range(const.OBSTACLE_COUNT):
-            x, y = random.randint(0, const.GRID_WIDTH - 1), random.randint(0, const.GRID_HEIGHT - 1)
-            if (x, y) not in [(player.x, player.y), (enemy.x, enemy.y)]:
-                obstacles.append((x, y))
-        return obstacles
+        # Generate initial scenario with blocks
+        if self.player and self.enemy:
+            self.scenario.generate_scenario((self.player.x, self.player.y), (self.enemy.x, self.enemy.y))
+            self.round_number = 1
+            self.in_round_transition = False
+    
+    def start_round_transition(self):
+        """Start the transition animation between rounds."""
+        if not self.in_round_transition:
+            self.in_round_transition = True
+            self.round_number += 1
+            self.round_transition_start_time = pygame.time.get_ticks()
+            self.show_countdown = True
+            debug_print(f"Starting Round {self.round_number}")
+            
+            # Explicitly force a round transition with new asteroid positions
+            if self.scenario:
+                self.scenario.start_round_transition()
+                # Force the round transition to be active
+                self.scenario.round_transition_active = True
+                # Reset the phase for proper transition
+                self.scenario.fade_phase_complete = False
+                
+            debug_print("Round transition started - asteroids will regenerate")
+    
+    def update_round_transition(self):
+        """Update the round transition animation and return True when complete."""
+        if not self.in_round_transition:
+            return True
+            
+        # Update the transition animation
+        transition_complete = self.scenario.update_round_transition(
+            (self.player.x, self.player.y),
+            (self.enemy.x, self.enemy.y)
+        )
+        
+        if transition_complete:
+            self.in_round_transition = False
+            self.show_countdown = False
+            debug_print(f"Round {self.round_number} started")
+            
+            # Start the player's turn when the transition is complete
+            self.player_turn = True
+            self.player.start_turn()
+            return True
+            
+        return False
 
     def handle_mouse_click(self, pos):
         """Handle mouse click events based on current game state."""
@@ -213,7 +260,8 @@ class GameManager:
             dist = abs(grid_x - self.player.x) + abs(grid_y - self.player.y)
             if dist <= self.player.moves_left:
                 # Check if destination has an obstacle
-                if (grid_x, grid_y) not in self.obstacles:
+                has_obstacle = (self.scenario and self.scenario.is_obstacle(grid_x, grid_y))
+                if not has_obstacle:  # Only move if there's no obstacle
                     self.player.x, self.player.y = grid_x, grid_y
                     self.player.moves_left -= dist
                     self.player.health -= dist * const.HEALTH_DAMAGE_PER_MOVE
@@ -263,10 +311,10 @@ class GameManager:
             if not (0 <= p.x < const.GRID_WIDTH and 0 <= p.y < const.GRID_HEIGHT):
                 self.projectiles.remove(p)
             # Check for collision with obstacle
-            elif (int(p.x), int(p.y)) in self.obstacles:
+            elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y)):
                 self.projectiles.remove(p)
             # Check for hit on enemy
-            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:
+            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:  # Fixed critical parenthesis bug
                 self.enemy.health -= const.PROJECTILE_DAMAGE
                 self.projectiles.remove(p)
                 
@@ -323,39 +371,71 @@ class GameManager:
         """Execute the AI turn logic with proper rendering updates."""
         try:
             # Pass game state to AI controller and get updated AI state
+            # Make sure we pass obstacles in the correct format (simple list of position tuples)
+            obstacles = self.scenario.obstacles if self.scenario else []
+            
+            # More visible debug messages
+            print("=============================================")
+            print(f"AI TURN STARTED - Round {self.round_number}")
+            print(f"AI enemy position: {self.enemy.x},{self.enemy.y}")
+            print(f"AI moves available: {self.enemy.moves_left}")
+            print(f"AI shots available: {self.enemy.shots_left}")
+            print(f"Player position: {self.player.x},{self.player.y}")
+            print(f"Obstacles count: {len(obstacles)}")
+            
+            # Debug the obstacles being passed to the AI
+            debug_print(f"AI obstacles: {obstacles}")
+            
             self.ai_state = AI.take_turn(
                 self.virtual_screen,
                 self.enemy, 
                 self.player, 
-                self.obstacles, 
+                obstacles,  # Use the obstacles property which returns position tuples
                 self.projectiles,
                 self._redraw_during_ai_turn,
                 game_manager=self  # Pass self as game_manager
             )
+            
+            print(f"AI TURN COMPLETED - Final position: {self.enemy.x},{self.enemy.y}")
+            print("=============================================")
+            
         except Exception as e:
-            debug_print(f"Error during AI turn execution: {e}")
+            print(f"ERROR during AI turn execution: {e}")
             import traceback
-            debug_print(traceback.format_exc())
+            print(traceback.format_exc())
             self.ai_state = const.AI_STATE_END
 
     def _finalize_enemy_turn(self):
         """Clean up after AI turn and prepare for player's turn."""
-        # Start the player's turn again
-        self.player_turn = True
-        self.player.start_turn()
+        # Reset AI turn state
         self.ai_turn_started = False
+        
+        # Check if a new round should be started
+        if self.player and self.enemy:
+            # Start round transition after each complete turn (player + AI)
+            self.start_round_transition()
+            debug_print(f"Starting round transition after AI turn. New round will be {self.round_number}")
+        else:
+            # Fallback: start player's turn directly if characters aren't initialized
+            self.player_turn = True
+            if self.player:
+                self.player.start_turn()
+            
+        debug_print(f"AI turn finalized. player_turn={self.player_turn}, round={self.round_number}")
 
     def _redraw_during_ai_turn(self):
         """Redraw the game state during AI animations."""
         # Fill screens
         self.screen.fill(const.BLACK)
         
-        # Fill background with brown color to match the gameplay style
-        self.virtual_screen.fill((110, 70, 40))
+        # Draw space background with stars
+        self.ui.draw_space_background()
         
-        # Draw basic elements
+        # Draw grid on top of space background
         self.ui.draw_grid()
-        self.ui.draw_obstacles(self.obstacles)
+        
+        # Draw scenario objects with health and animations
+        self.ui.draw_scenario(self.scenario)
         
         # Draw characters
         if self.player:
@@ -368,6 +448,9 @@ class GameManager:
         
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
+        
+        # Draw round info
+        self.ui.draw_round_info(self.round_number)
         
         # Draw new UI elements based on the mockup
         # 1. Game header with turn and moves/shots
@@ -466,7 +549,12 @@ class GameManager:
                                 # End Turn button clicked
                                 self.player.moves_left = 0
                                 self.player.shots_left = 0
+                                
+                                # Set player's turn to false so AI can take its turn
                                 self.player_turn = False
+                                print("Player turn ended. Switching to AI turn.")
+                                
+                                # No need to start round transition here - that happens after AI's turn
                                 continue  # Skip other click handling
                             
                             if debug_button_rect and debug_button_rect.collidepoint(virtual_mouse_pos):
@@ -535,12 +623,21 @@ class GameManager:
 
     def _render_gameplay(self):
         """Render the gameplay state."""
-        # Fill background
-        self.virtual_screen.fill((110, 70, 40))  # Brown background like in the screenshot
+        # Fill background with space theme
+        self.ui.draw_space_background()
         
-        # Draw basic elements
+        # Draw grid on top of space background
         self.ui.draw_grid()
-        self.ui.draw_obstacles(self.obstacles)
+        
+        # Update asteroid animations - add this line to continuously update animations
+        if self.scenario:
+            self.scenario.update_animations()
+        
+        # Draw scenario objects (asteroids) with health and animations
+        self.ui.draw_scenario(self.scenario)
+        
+        # Draw round info
+        self.ui.draw_round_info(self.round_number)
         
         # Draw characters
         if self.player:
@@ -592,9 +689,17 @@ class GameManager:
         # Draw the End Turn button
         if self.player_turn:
             end_turn_button_rect = self.ui.draw_end_turn_button()
+        
+        # Update round transition animation if active
+        if self.in_round_transition:
+            transition_complete = self.update_round_transition()
+            if self.show_countdown:
+                elapsed_time = pygame.time.get_ticks() - self.round_transition_start_time
+                countdown_value = max(1, const.ROUND_TRANSITION_COUNTDOWN - elapsed_time // 1000)
+                self.ui.draw_countdown(self.round_number)
             
-        # Handle AI turn when it's not the player's turn
-        if not self.player_turn:
+        # Handle AI turn when it's not the player's turn and we're not in round transition
+        elif not self.player_turn and not self.in_round_transition:
             self.enemy_turn()
 
 

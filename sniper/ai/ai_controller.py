@@ -44,7 +44,9 @@ class AI:
         Args:
             game_manager: Reference to GameManager for health checks
         """
-        debug_print("AI.take_turn called")
+        print("AI.take_turn called - starting AI decision process")
+        print(f"AI position: ({enemy.x}, {enemy.y}), Player position: ({player.x}, {player.y})")
+        print(f"AI has {enemy.moves_left} moves and {enemy.shots_left} shots")
         
         # Ensure enemy stats are reset for this turn
         enemy.start_turn()
@@ -53,30 +55,37 @@ class AI:
         ai_state = cls._state_manager.transition_to_thinking(redraw_callback)
         
         try:
-            debug_print("--- AI Turn Start ---")
-            debug_print(f"Enemy at ({enemy.x}, {enemy.y}), Player at ({player.x}, {player.y})")
-            debug_print(f"Moves left: {enemy.moves_left}, Shots left: {enemy.shots_left}")
+            print("--- AI Turn Start ---")
+            print(f"Enemy at ({enemy.x}, {enemy.y}), Player at ({player.x}, {player.y})")
+            print(f"Moves left: {enemy.moves_left}, Shots left: {enemy.shots_left}")
             
             # PHASE 1: Check if we already have line of sight - this saves movement points
             current_can_shoot = cls._line_of_sight.has_line_of_fire(enemy, player, obstacles)
-            debug_print(f"Current position line of sight check: {current_can_shoot}")
+            print(f"Current position line of sight check: {current_can_shoot}")
             
             if not current_can_shoot:
                 # PHASE 2: Move to find a position with line of sight
+                print("AI doesn't have line of sight - trying to find position with line of sight")
                 ai_state = cls._execute_offensive_movement_phase(enemy, player, obstacles, redraw_callback, game_manager)
+                print(f"After offensive movement, AI is at ({enemy.x}, {enemy.y}) with {enemy.moves_left} moves left")
             
             # PHASE 3: Shoot if we have line of sight
+            print("AI attempting to shoot")
             ai_state = cls._execute_shooting_phase(enemy, player, obstacles, projectiles, redraw_callback)
             
             # PHASE 4: Retreat to safety if we have moves left
-            ai_state = cls._execute_retreat_phase(enemy, player, obstacles, redraw_callback, game_manager)
+            if enemy.moves_left > 0:
+                print(f"AI has {enemy.moves_left} moves left - attempting retreat")
+                ai_state = cls._execute_retreat_phase(enemy, player, obstacles, redraw_callback, game_manager)
+                print(f"After retreat, AI is at ({enemy.x}, {enemy.y})")
             
             # End turn with status
             ai_state = cls._state_manager.transition_to_end(redraw_callback)
-            debug_print("--- AI Turn End ---")
+            print("--- AI Turn End ---")
         except Exception as e:
-            debug_print(f"AI Error: {str(e)}")
-            debug_print(f"Traceback: {traceback.format_exc()}")
+            print(f"AI ERROR: {str(e)}")
+            import traceback
+            print(f"AI ERROR TRACEBACK: {traceback.format_exc()}")
             ai_state = const.AI_STATE_END
         
         # Reset enemy movement and shots at end of turn
