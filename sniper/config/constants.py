@@ -42,23 +42,23 @@ ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 secon
 ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
 ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
 ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
-POST_ENEMY_DELAY = 2000            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
+POST_ENEMY_DELAY = 1500            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
 OBSTACLE_COUNT = 100
-BLOCK_MAX_HEALTH = 3              # Maximum health for blocks/obstacles
+BLOCK_MAX_HEALTH = 2              # Maximum health for blocks/obstacles
 BLOCK_DAMAGE_PER_HIT = 1          # Damage per projectile hit
 SCENARIO_POPULATION = 20          # Default population count for obstacles in a scenario
 ANIMATION_DELAY = 300
 BLOCK_FADE_DURATION = 500         # Duration for blocks fading out (ms)
 BLOCK_APPEAR_DURATION = 500       # Duration for blocks appearing (ms)
 ROUND_TRANSITION_DELAY = 1000     # Delay between rounds (ms)
-AI_AIMING_DELAY = 500
-AI_SHOOTING_DELAY = 500
+AI_AIMING_DELAY = 1000
+AI_SHOOTING_DELAY = 1000
 AI_END_TURN_DELAY = 500
-AI_TURN_DELAY = 1500  # Delay before AI takes its turn (milliseconds)
+AI_TURN_DELAY = 1000  # Delay before AI takes its turn (milliseconds)
 
 # AI Animation and Timing Constants
 AI_THINKING_DELAY = 300
@@ -89,7 +89,7 @@ EXPERIENCE_DESTROY_ELEMENT = 15   # Experience for destroying environmental elem
 # Courage System Constants
 COURAGE_MAX = 100                # Maximum courage value
 COURAGE_PROXIMITY_GAIN = 15       # Courage gained per second when near opponent
-COURAGE_PROXIMITY_RANGE = 8      # Grid cells radius for proximity detection
+COURAGE_PROXIMITY_RANGE = 15      # Grid cells radius for proximity detection
 COURAGE_HIT_ENVIRONMENT = 10      # Courage for destroying environment elements
 COURAGE_KILL_PLAYER = 50         # Courage for killing a player
 COURAGE_BUTTON_COST = 25         # Courage points consumed for extra shot

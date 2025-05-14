@@ -110,8 +110,8 @@ class GameManager:
 
     def start_game(self):
         """Start a new game by initializing the scenario."""
-        # Initialize scenario with default population
-        self.scenario = ScenarioManager(const.SCENARIO_POPULATION)
+        # Initialize scenario with obstacle count
+        self.scenario = ScenarioManager(const.OBSTACLE_COUNT)
         
         # Generate initial scenario with blocks
         if self.player and self.enemy:
