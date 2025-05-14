@@ -600,8 +600,55 @@ class UI:
                     alpha=alpha
                 )
         else:
-            # Default black background if no character selected
-            self.surface.fill((0, 0, 0))
+            # Enhanced default background when no character is selected
+            # Dark tech-themed background
+            bg_color = (15, 20, 30)  # Dark blue-gray
+            accent_color = (80, 100, 140)  # Light blue-gray
+            self.surface.fill(bg_color)
+            
+            # Create gradient effect from top to bottom
+            for y in range(0, const.SCREEN_HEIGHT, 3):
+                alpha = 5 + (y % const.SCREEN_HEIGHT) / const.SCREEN_HEIGHT * 10
+                pygame.draw.line(
+                    self.surface, 
+                    (*accent_color, alpha),
+                    (0, y), 
+                    (const.SCREEN_WIDTH, y),
+                    1
+                )
+                
+            # Draw grid pattern for tech feel
+            for x in range(0, const.SCREEN_WIDTH, 100):
+                alpha = 15
+                pygame.draw.line(
+                    self.surface,
+                    (*accent_color, alpha),
+                    (x, 0),
+                    (x, const.SCREEN_HEIGHT),
+                    1
+                )
+                
+            # Add scattered hexagons with various sizes
+            for _ in range(12):
+                x = random.randint(50, const.SCREEN_WIDTH - 50)
+                y = random.randint(50, const.SCREEN_HEIGHT - 50)
+                size = random.randint(15, 60)
+                alpha = random.randint(10, 30)
+                
+                # Alternate between accent color variants for visual interest
+                border_color = accent_color
+                if random.randint(0, 1) == 0:
+                    border_color = (100, 120, 160)  # Slightly different accent
+                
+                self.draw_hexagonal_button(
+                    self.surface,
+                    center_pos=(x, y),
+                    radius=size,
+                    color=bg_color,
+                    border_color=border_color,
+                    enabled=True,
+                    alpha=alpha
+                )
         
         # Title text with glow effect if character selected
         title = f"Select {stage.capitalize()} Character"
@@ -637,6 +684,29 @@ class UI:
             title_text = self.fonts['big'].render(title, True, const.WHITE)
             title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
             self.surface.blit(title_text, title_rect)
+            
+            # Add decorative hex symbols beside title for the non-selected state too
+            neutral_accent = (100, 120, 160)  # Light blue-gray
+            neutral_bg = (15, 20, 30)  # Dark blue-gray
+            
+            self.draw_hexagonal_button(
+                self.surface,
+                center_pos=(title_rect.left - 30, 50),
+                radius=10,
+                color=neutral_bg,
+                border_color=neutral_accent,
+                enabled=True,
+                alpha=230
+            )
+            self.draw_hexagonal_button(
+                self.surface,
+                center_pos=(title_rect.right + 30, 50),
+                radius=10,
+                color=neutral_bg,
+                border_color=neutral_accent,
+                enabled=True,
+                alpha=230
+            )
         
         clickable_elements = []
         
