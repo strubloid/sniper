@@ -47,7 +47,7 @@ POST_ENEMY_DELAY = 1000            # Delay after enemy turn before showing round
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
-OBSTACLE_COUNT = 100
+OBSTACLE_COUNT = 50
 BLOCK_MAX_HEALTH = 2              # Maximum health for blocks/obstacles
 BLOCK_DAMAGE_PER_HIT = 1          # Damage per projectile hit
 SCENARIO_POPULATION = 20          # Default population count for obstacles in a scenario
@@ -126,7 +126,7 @@ ENEMY_START_Y = 5
 BUTTON_HEIGHT = 50
 BUTTON_WIDTH = 200
 BUTTON_SPACING = 20
-HUD_SPACING = 10
+HUD_SPACING = 15
 PROJECTILE_RADIUS = 10
 
 # Debugging control

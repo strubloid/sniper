@@ -158,7 +158,7 @@ class GameManager:
             self.show_countdown = False
             debug_print(f"Round {self.round_number} started")
             
-            # Start the player's turn when the transition is complete
+            # Only start the player's turn when the transition is complete
             self.player_turn = True
             self.player.start_turn()
             
@@ -167,6 +167,9 @@ class GameManager:
             
             return True
             
+        # Important: Keep player_turn as false during the transition
+        # This ensures the UI stays in "enemy's turn" color mode during countdown
+        self.player_turn = False
         return False
         
     def _update_courage_for_new_round(self):
@@ -543,11 +546,11 @@ class GameManager:
         self.ui.draw_round_info(self.round_number)
         
         # Draw new UI elements based on the mockup
-        # 1. Game header with turn and moves/shots
-        self.ui.draw_game_header(self.player, self.player_turn)
+        # 1. Game header with turn and moves/shots - explicitly set player_turn=False for enemy turn
+        self.ui.draw_game_header(self.player, player_turn=False)
         
-        # 2. Player stats panel at the bottom
-        self.ui.draw_player_stats_panel(self.player)
+        # 2. Player stats panel at the bottom - explicitly set player_turn=False for enemy turn
+        self.ui.draw_player_stats_panel(self.player, player_turn=False)
         
         # Draw debug info if enabled
         if self.show_debug:
@@ -773,7 +776,7 @@ class GameManager:
         self.ui.draw_game_header(self.player, self.player_turn)
         
         # 2. Player stats panel at the bottom - get the courage button rect
-        courage_button_rect = self.ui.draw_player_stats_panel(self.player)
+        courage_button_rect = self.ui.draw_player_stats_panel(self.player, self.player_turn)
         # Store courage button rect for click detection
         self.courage_button_rect = courage_button_rect
         # Draw bush button next to courage and store rect

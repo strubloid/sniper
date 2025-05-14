@@ -553,40 +553,73 @@ class UI:
         """Draw the game header with turn indicator and player stats."""
         # Header background - full width bar at top
         header_rect = pygame.Rect(0, 0, const.SCREEN_WIDTH, 40)
-        pygame.draw.rect(self.surface, (35, 35, 45), header_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), header_rect, 2)  # Gold border
+        
+        # Use player's character color for HUD when it's player's turn,
+        # or red when it's enemy's turn
+        if player_turn:
+            # Get player's color from their sniper type
+            player_color = player.sniper_type.color
+            # Create a darker version of the player's color for the background
+            background_color = (
+                max(0, player_color[0] * 0.3),  # R
+                max(0, player_color[1] * 0.3),  # G
+                max(0, player_color[2] * 0.3)   # B
+            )
+            header_text_color = player_color
+        else:
+            # Enemy's turn - use red theme
+            background_color = (50, 10, 10)  # Dark red background
+            header_text_color = const.RED
+        
+        pygame.draw.rect(self.surface, background_color, header_rect)
+        pygame.draw.rect(self.surface, header_text_color, header_rect, 2)  # Border matching text color
         
         # Turn text
         current_player = player if player_turn else "Enemy"
         name = player.sniper_type.name if player_turn else "Enemy"
         header_text = f"{name}'s Turn"
-        text_surf = self.fonts['big'].render(header_text, True, (220, 180, 100))  # Golden color
+        text_surf = self.fonts['big'].render(header_text, True, header_text_color)
         text_rect = text_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 20))
         self.surface.blit(text_surf, text_rect)
         
         # Show moves and shots remaining
         if player_turn:
             stats_text = f"Moves: {player.moves_left} | Shots: {player.shots_left}"
-            stats_surf = self.fonts['normal'].render(stats_text, True, (220, 180, 100))
+            stats_surf = self.fonts['normal'].render(stats_text, True, header_text_color)
             stats_rect = stats_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
             self.surface.blit(stats_surf, stats_rect)
     
-    def draw_player_stats_panel(self, player: Character) -> pygame.Rect:
+    def draw_player_stats_panel(self, player: Character, player_turn: bool = True) -> pygame.Rect:
         """Draw the player stats panel at the bottom of the screen and return the courage button rect."""
         # Main panel container (spans bottom of screen)
         panel_height = 100
         panel_top = const.SCREEN_HEIGHT - panel_height
         main_panel = pygame.Rect(0, panel_top, const.SCREEN_WIDTH, panel_height)
 
-        # Draw the panel with dark background
-        pygame.draw.rect(self.surface, (35, 35, 45), main_panel)
-        pygame.draw.rect(self.surface, (220, 180, 100), main_panel, 2)  # Gold border
+        # Get color based on player's character when it's player's turn, or red for enemy's turn
+        if player_turn:
+            player_color = player.sniper_type.color
+            # Create a darker version of the player's color for the background
+            panel_bg_color = (
+                max(0, player_color[0] * 0.2 + 15),  # R
+                max(0, player_color[1] * 0.2 + 15),  # G
+                max(0, player_color[2] * 0.2 + 15)   # B
+            )
+            panel_border_color = player.sniper_type.color
+        else:
+            # Enemy's turn - use red theme
+            panel_bg_color = (40, 15, 15)  # Dark red background
+            panel_border_color = const.RED
+            
+        # Draw the panel with appropriate background color
+        pygame.draw.rect(self.surface, panel_bg_color, main_panel)
+        pygame.draw.rect(self.surface, panel_border_color, main_panel, 2)  # Border using character color
 
         # LEFT SECTION - Player portrait and stats
         portrait_size = 80
         portrait_rect = pygame.Rect(10, panel_top + 10, portrait_size, portrait_size)
         pygame.draw.rect(self.surface, (60, 60, 80), portrait_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), portrait_rect, 2)  # Gold border
+        pygame.draw.rect(self.surface, panel_border_color, portrait_rect, 2)  # Border using character color
 
         # Display player portrait if available
         if hasattr(player, 'sniper_type') and hasattr(player.sniper_type, 'sprite') and player.sniper_type.sprite:
@@ -595,7 +628,7 @@ class UI:
 
         # Player name just right of the portrait
         stats_x = portrait_rect.right + 20
-        name_text = self.fonts['big'].render(player.sniper_type.name, True, (220, 180, 100))
+        name_text = self.fonts['big'].render(player.sniper_type.name, True, panel_border_color)
         self.surface.blit(name_text, (stats_x, panel_top + 15))
 
         # Health/XP bar - red bar with clear 100/100 styling
@@ -612,14 +645,14 @@ class UI:
 
         # Health text (100/100) below the bar
         health_text = f"{int(player.health)}/100"
-        health_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
+        health_surf = self.fonts['normal'].render(health_text, True, panel_border_color)
         self.surface.blit(health_surf, (stats_x, panel_top + 70))
 
         # COURAGE SECTION
         courage_x = stats_x + 180
 
         # Draw "Courage:" label
-        courage_label = self.fonts['normal'].render("Courage", True, (220, 180, 100))
+        courage_label = self.fonts['normal'].render("Courage", True, panel_border_color)
         self.surface.blit(courage_label, (courage_x, panel_top + 30))
 
         # Draw courage bar
@@ -637,7 +670,7 @@ class UI:
 
         # Display courage value
         courage_value = str(int(player.courage))
-        courage_text = self.fonts['normal'].render(f"{courage_value}/{const.COURAGE_MAX}", True, (220, 180, 100))
+        courage_text = self.fonts['normal'].render(f"{courage_value}/{const.COURAGE_MAX}", True, panel_border_color)
         self.surface.blit(courage_text, (courage_x, courage_bar_y + courage_height + 5))
 
         # Courage Button - circular button to the right of courage bar
@@ -663,21 +696,21 @@ class UI:
         )
         pygame.draw.circle(
             self.surface, 
-            (220, 180, 100), 
+            panel_border_color, 
             (courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2)), 
             courage_button_size // 2,
             2  # 2px width border
         )
 
         # Draw "+" in the button
-        plus_text = self.fonts['normal'].render("+", True, (220, 180, 100) if button_enabled else (120, 120, 120))
+        plus_text = self.fonts['normal'].render("+", True, panel_border_color if button_enabled else (120, 120, 120))
         plus_rect = plus_text.get_rect(
             center=(courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2))
         )
         self.surface.blit(plus_text, plus_rect)
 
         # Draw cost tooltip near courage button below the button
-        cost_text = self.fonts['normal'].render(f"{const.COURAGE_BUTTON_COST}", True, (220, 180, 100) if button_enabled else (120, 120, 120))
+        cost_text = self.fonts['normal'].render(f"{const.COURAGE_BUTTON_COST}", True, panel_border_color if button_enabled else (120, 120, 120))
         self.surface.blit(cost_text, (courage_button_x, courage_button_y + courage_button_size + 5))  # cost in courage to use + ability
 
         # CENTER SECTION - Powers - position next to End Turn button
@@ -689,11 +722,12 @@ class UI:
         gap = 20  # gap between power section and End Turn button
 
         # Sniper Power label above, right-aligned just before End Turn
-        header_surf = self.fonts['normal'].render("Sniper Power", True, (220, 180, 100))
+        header_surf = self.fonts['normal'].render("Sniper Power", True, panel_border_color)
         header_rect = header_surf.get_rect(midright=(end_turn_left - gap, center_y - 14))
         self.surface.blit(header_surf, header_rect)
+        
         # Selected Power text below, same right alignment
-        power_surf = self.fonts['big'].render(player.sniper_type.special_power, True, (220, 180, 100))
+        power_surf = self.fonts['big'].render(player.sniper_type.special_power, True, panel_border_color)
         power_rect = power_surf.get_rect(midright=(end_turn_left - gap, center_y + 18))
         self.surface.blit(power_surf, power_rect)
 
@@ -709,10 +743,10 @@ class UI:
 
         # Draw the End Turn button
         pygame.draw.rect(self.surface, (80, 30, 20), end_turn_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), end_turn_rect, 2)  # Gold border
+        pygame.draw.rect(self.surface, panel_border_color, end_turn_rect, 2)  # Border using character color
 
         # End Turn text
-        end_turn_text = self.fonts['normal'].render("End Turn", True, (220, 180, 100))
+        end_turn_text = self.fonts['normal'].render("End Turn", True, panel_border_color)
         end_turn_text_rect = end_turn_text.get_rect(center=end_turn_rect.center)
         self.surface.blit(end_turn_text, end_turn_text_rect)
 
