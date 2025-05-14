@@ -312,31 +312,65 @@ class ScenarioManager:
         """
         if not self.round_transition_active:
             return True
+        
         # Backup any existing bush blocks so they persist across rounds
         bush_blocks = [block for block in self.blocks if getattr(block, 'is_bush', False)]
          
         current_time = time.time() * 1000
+        elapsed = current_time - self.transition_start_time
+        
+        # Log transition progress every second
+        seconds_elapsed = int(elapsed / 1000)
+        if not hasattr(self, '_last_log_time') or seconds_elapsed > self._last_log_time:
+            self._last_log_time = seconds_elapsed
+            print(f"[{seconds_elapsed}s] Round transition in progress - Phase: {'Fade-out' if not self.fade_phase_complete else 'Fade-in'}")
          
         # Phase 1: Wait for all blocks to fade out
         if not self.fade_phase_complete:
-            all_faded = all(not block.is_fading for block in self.blocks)
-             
-            if all_faded:
+            # Check if any non-bush blocks are still fading
+            non_bush_blocks = [b for b in self.blocks if not getattr(b, 'is_bush', False)]
+            fading_blocks = [b for b in non_bush_blocks if b.is_fading]
+            
+            # Debug the fade-out progress more frequently
+            if len(fading_blocks) > 0 and (elapsed % 500 < 20):  # Log approximately every 500ms
+                debug_print(f"[{elapsed:.0f}ms] Waiting for {len(fading_blocks)} blocks to finish fading out")
+            
+            # Force fade-out completion after sufficient time has elapsed (reduced timeout)
+            time_to_force = const.BLOCK_FADE_DURATION + 200  # Add a small buffer
+            
+            # Determine if fade phase is complete
+            all_faded = len(fading_blocks) == 0
+            force_complete = elapsed >= time_to_force
+            
+            if all_faded or force_complete:
+                if force_complete:
+                    print(f"[{elapsed:.0f}ms] Force completing fade-out phase due to timeout")
+                    # Force any remaining blocks to complete fading
+                    for block in self.blocks:
+                        if block.is_fading:
+                            block.is_fading = False
+                            block.alpha = 0
+                
                 self.fade_phase_complete = True
-                 
+                print(f"[{elapsed:.0f}ms] Fade-out phase complete, regenerating blocks")
+                
+                # IMPORTANT: Reset transition start time for the second phase
+                # This ensures that the elapsed time calculation is accurate for the fade-in phase
+                self.transition_start_time = current_time
+                
                 # Regenerate blocks with new positions
                 import random
-                 
+                
                 # Keep track of which non-bush blocks are still alive
                 healthy = [b for b in self.blocks if not b.is_destroyed and not getattr(b, 'is_bush', False)]
                 destroyed = [b for b in self.blocks if b.is_destroyed and not getattr(b, 'is_bush', False)]
                 # Reset block list to start fresh, re-add bush blocks
                 self.blocks = list(bush_blocks)
-                 
+                
                 # Make sure positions are integers
                 player_pos_int = (int(player_pos[0]), int(player_pos[1]))
                 enemy_pos_int = (int(enemy_pos[0]), int(enemy_pos[1]))
-                 
+                
                 # Create buffer zones around characters to prevent blocks from being too close
                 protected_positions = [
                     player_pos_int,
@@ -351,21 +385,21 @@ class ScenarioManager:
                     (enemy_pos_int[0], enemy_pos_int[1] + 1),
                     (enemy_pos_int[0], enemy_pos_int[1] - 1),
                 ]
-                 
+                
                 print(f"Protected positions for block generation: {protected_positions}")
-                 
+                
                 # Re-add healthy non-bush blocks with new positions
                 attempts = 0
                 while len(self.blocks) < len(healthy) + len(bush_blocks) and attempts < len(healthy) * 5:
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
-                     
+                    
                     # Don't place blocks on players, near players, or on existing blocks
                     if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
-                     
+                    
                     # Create a new block with same health as an old one
                     if healthy:
                         old_block = healthy.pop(0)
@@ -373,35 +407,51 @@ class ScenarioManager:
                         block.health = old_block.health
                         block.start_fade_in()
                         self.blocks.append(block)
-                 
+                
                 # Add destroyed non-bush blocks back at full health to maintain population
                 while len(self.blocks) < self.population + len(bush_blocks) and attempts < self.population * 5:
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
-                     
+                    
                     # Don't place blocks on players, near players, or on existing blocks
                     if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
-                     
+                    
                     # Create a new block
                     block = Block(x, y)
                     block.start_fade_in()
                     self.blocks.append(block)
-                 
-                debug_print(f"Regenerated {len(self.blocks)} blocks, starting fade in phase")
+                    
+                debug_print(f"Regenerated {len(self.blocks) - len(bush_blocks)} blocks, starting fade in phase")
          
         # Phase 2: Wait for all blocks to fade in
         else:
-            # Check if all blocks have completed their fade-in animation
-            all_appeared = all(not block.is_appearing for block in self.blocks)
-             
+            # Check if any non-bush blocks are still appearing
+            non_bush_blocks = [b for b in self.blocks if not getattr(b, 'is_bush', False)]
+            appearing_blocks = [b for b in non_bush_blocks if b.is_appearing]
+            
+            if appearing_blocks:
+                debug_print(f"Waiting for {len(appearing_blocks)} blocks to finish fading in")
+            
             # Check if enough time has passed since transition start
             elapsed = current_time - self.transition_start_time
-            time_complete = elapsed >= (const.BLOCK_FADE_DURATION + const.ROUND_TRANSITION_DELAY + const.BLOCK_APPEAR_DURATION)
+            time_to_force = const.BLOCK_FADE_DURATION + const.ROUND_TRANSITION_DELAY + const.BLOCK_APPEAR_DURATION + 200
+            
+            # Determine if transition is complete
+            all_appeared = len(appearing_blocks) == 0
+            force_complete = elapsed >= time_to_force
              
-            if all_appeared and time_complete:
+            if all_appeared or force_complete:
+                if force_complete:
+                    debug_print("Force completing fade-in phase due to timeout")
+                    # Force any remaining blocks to complete appearing
+                    for block in self.blocks:
+                        if block.is_appearing:
+                            block.is_appearing = False
+                            block.alpha = 255
+                
                 self.round_transition_active = False
                 debug_print("Round transition complete")
                 return True

@@ -72,6 +72,9 @@ class GameManager:
         self.ai_state = None
         self.scores = []
         
+        # Flag to track if mouse is hovering over enemy
+        self.is_hovering_enemy = False
+        
         # AI turn handling
         self.ai_turn_started = False
         self.ai_turn_time = 0
@@ -536,8 +539,9 @@ class GameManager:
         
         if self.enemy:
             self.enemy.draw(self.virtual_screen)
-            # Draw enemy info box above enemy
-            self.ui.draw_enemy_info_box(self.enemy)
+            # Only draw enemy info box when hovering over enemy
+            if self.is_hovering_enemy:
+                self.ui.draw_enemy_info_box(self.enemy)
         
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
@@ -715,6 +719,38 @@ class GameManager:
             if self.show_confirm_popup:
                 self.ui.draw_confirmation_popup()
         elif self.game_state == const.STATE_PLAY:
+            # Process AI turn if it's not player's turn
+            if not self.player_turn:
+                current_time = pygame.time.get_ticks()
+                
+                # Print debug info for visibility
+                if hasattr(self, '_last_state_debug') and current_time - self._last_state_debug > 1000:
+                    self._last_state_debug = current_time
+                    if self.in_round_transition:
+                        print(f"Round transition in progress - Elapsed: {current_time - self.round_transition_start_time}ms")
+                    elif self.post_enemy_delay:
+                        print(f"Post-enemy delay in progress - Elapsed: {current_time - self.post_enemy_delay_start}ms")
+                    else:
+                        print(f"Enemy turn in progress - AI state: {self.ai_state}")
+                else:
+                    self._last_state_debug = current_time
+                
+                # Check for post-enemy delay
+                if self.post_enemy_delay:
+                    if current_time - self.post_enemy_delay_start >= const.POST_ENEMY_DELAY:
+                        print(f"Post-enemy delay completed ({current_time - self.post_enemy_delay_start}ms elapsed)")
+                        self.post_enemy_delay = False
+                        self.start_round_transition()
+                # Process round transition if active
+                elif self.in_round_transition:
+                    transition_complete = self.update_round_transition()
+                    if transition_complete:
+                        print("Round transition completed successfully")
+                # Otherwise run enemy's turn
+                else:
+                    self.enemy_turn()
+            
+            # Render the gameplay
             self._render_gameplay()
         elif self.game_state == const.STATE_GAME_OVER:
             self.ui.draw_game_over(self.winner)
@@ -737,6 +773,22 @@ class GameManager:
         # Draw round info
         self.ui.draw_round_info(self.round_number)
         
+        # Get current mouse position and convert to virtual coordinates
+        actual_mouse_pos = pygame.mouse.get_pos()
+        virtual_mouse_pos = (
+            actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
+            actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
+        )
+        
+        # Calculate grid coordinates for mouse
+        mouse_grid_x = int(virtual_mouse_pos[0] // const.GRID_SIZE)
+        mouse_grid_y = int(virtual_mouse_pos[1] // const.GRID_SIZE)
+        
+        # Check if mouse is hovering over enemy
+        self.is_hovering_enemy = False
+        if self.enemy and mouse_grid_x == self.enemy.x and mouse_grid_y == self.enemy.y:
+            self.is_hovering_enemy = True
+        
         # Draw characters
         if self.player:
             self.player.draw_range(self.virtual_screen)
@@ -744,20 +796,16 @@ class GameManager:
         
         if self.enemy:
             self.enemy.draw(self.virtual_screen)
-            # Draw enemy info box above enemy
-            self.ui.draw_enemy_info_box(self.enemy)
+            # Only draw enemy info box when hovering over enemy
+            if self.is_hovering_enemy:
+                self.ui.draw_enemy_info_box(self.enemy)
             
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
         
         # Draw shooting arrow or bush placement arrow
-        actual_mouse_pos = pygame.mouse.get_pos()
-        virtual_mouse_pos = (
-            actual_mouse_pos[0] * (const.SCREEN_WIDTH / self.screen_width),
-            actual_mouse_pos[1] * (const.SCREEN_HEIGHT / self.screen_height)
-        )
         # Convert to grid coordinates for bush preview
-        target_grid = (int(virtual_mouse_pos[0] // const.GRID_SIZE), int(virtual_mouse_pos[1] // const.GRID_SIZE))
+        target_grid = (mouse_grid_x, mouse_grid_y)
         # Shooting arrow
         if self.shoot_mode and self.player.shots_left > 0:
             if (0 <= virtual_mouse_pos[0] < const.SCREEN_WIDTH and 0 <= virtual_mouse_pos[1] < const.SCREEN_HEIGHT):
@@ -796,27 +844,6 @@ class GameManager:
         # Draw the End Turn button
         if self.player_turn:
             end_turn_button_rect = self.ui.draw_end_turn_button()
-        
-        # Update round transition animation if active
-        if self.in_round_transition:
-            transition_complete = self.update_round_transition()
-            if self.show_countdown:
-                elapsed_time = pygame.time.get_ticks() - self.round_transition_start_time
-                countdown_value = max(1, const.ROUND_TRANSITION_COUNTDOWN - elapsed_time // 1000)
-                self.ui.draw_countdown(self.round_number)
-            
-        # Handle AI turn when it's not the player's turn and we're not in round transition
-        elif not self.player_turn and not self.in_round_transition:
-            if self.post_enemy_delay:
-                current_time = pygame.time.get_ticks()
-                if current_time - self.post_enemy_delay_start >= const.POST_ENEMY_DELAY:
-                    # After the delay, start the round transition
-                    self.post_enemy_delay = False
-                    # Start round transition with new round number
-                    self.start_round_transition()
-                    debug_print(f"Post-enemy delay complete. Starting round transition to Round {self.round_number}")
-            else:
-                self.enemy_turn()
 
 def main():
     """Main entry point function."""

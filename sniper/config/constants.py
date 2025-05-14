@@ -42,7 +42,8 @@ ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 secon
 ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
 ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
 ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
-POST_ENEMY_DELAY = 1000            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
+ROUND_TRANSITION_MAX_TIME = 10000  # Maximum time (10 seconds) a round transition can take before being forced to complete
+POST_ENEMY_DELAY = 1000            # Delay after enemy turn before showing round transition (1 second)
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
