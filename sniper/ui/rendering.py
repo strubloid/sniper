@@ -820,3 +820,9 @@ class UI:
         instruction_surf = self.fonts['big'].render(instruction_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
         instruction_rect = instruction_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2 + 70))
         self.surface.blit(instruction_surf, instruction_rect)
+    
+    def draw_enemy_with_info(self, enemy: Character) -> None:
+        """Draw the enemy info box, then the enemy sprite on top to avoid hiding the character."""
+        self.draw_enemy_info_box(enemy)
+        # Draw the enemy sprite on top of the info box
+        enemy.draw(self.surface)
