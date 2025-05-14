@@ -196,3 +196,150 @@ class TacticalPositionFinder:
         score += random.uniform(-const.AI_RANDOM_FACTOR, const.AI_RANDOM_FACTOR)
         
         return score
+    
+    def find_position_with_line_of_sight(
+            self, character: Character, target: Character, 
+            obstacles: List[Tuple[int, int]], max_moves: int
+        ) -> Optional[Tuple[Tuple[int, int], List[Tuple[int, int]]]]:
+        """
+        Find a position that has line of sight to the target.
+        Prioritizes positions that can see the target.
+        
+        Args:
+            character: The character moving
+            target: The target character to get line of sight to
+            obstacles: List of obstacle positions
+            max_moves: Maximum number of moves allowed
+            
+        Returns:
+            Tuple of (position, path) or None if no position found
+        """
+        debug_print(f"Finding position with line of sight within {max_moves} moves")
+        
+        # Generate list of all possible positions within movement range
+        possible_positions = self._generate_candidate_positions(character, target, obstacles, max_moves)
+        
+        # Score and sort positions - with heavy priority on positions with line of sight
+        position_scores = {}
+        for pos in possible_positions:
+            # Get a path to this position
+            path = PathFinder.find_path((character.x, character.y), pos, obstacles, target)
+            
+            # Skip if no path or too far
+            if not path or len(path) > max_moves:
+                continue
+            
+            # Convert target position to integers for the range check
+            target_x_int, target_y_int = int(target.x), int(target.y)
+            
+            # Check if this position has line of sight
+            has_line_of_sight = False
+            if pos[0] == target_x_int or pos[1] == target_y_int:  # Same column or row
+                # Check if path is clear
+                if pos[0] == target_x_int:  # Same column
+                    start_y, end_y = min(pos[1], target_y_int), max(pos[1], target_y_int)
+                    has_line_of_sight = all((pos[0], check_y) not in obstacles 
+                                          for check_y in range(start_y + 1, end_y))
+                else:  # Same row
+                    start_x, end_x = min(pos[0], target_x_int), max(pos[0], target_x_int)
+                    has_line_of_sight = all((check_x, pos[1]) not in obstacles 
+                                          for check_x in range(start_x + 1, end_x))
+            
+            # Calculate base score - HEAVILY prioritize positions with line of sight
+            base_score = 1000 if has_line_of_sight else 0
+            
+            # Add standard position evaluation
+            evaluation_score = self.strategy.evaluate_position(character, target, pos, obstacles, len(path))
+            
+            # Combined score
+            position_scores[pos] = (base_score + evaluation_score, path)
+        
+        # Find best position
+        if position_scores:
+            best_pos = max(position_scores.items(), key=lambda x: x[1][0])[0]
+            best_score, best_path = position_scores[best_pos]
+            debug_print(f"Best position with line of sight: {best_pos} Score: {best_score}")
+            return best_pos, best_path
+        
+        # If no position with line of sight, fall back to regular tactical position
+        debug_print("No position with line of sight found")
+        return None
+    
+    def find_retreat_position(
+            self, character: Character, target: Character, 
+            obstacles: List[Tuple[int, int]], max_moves: int
+        ) -> Optional[Tuple[Tuple[int, int], List[Tuple[int, int]]]]:
+        """
+        Find a position to retreat to after shooting.
+        Prioritizes positions with cover and away from the target.
+        
+        Args:
+            character: The character moving
+            target: The target character to retreat from
+            obstacles: List of obstacle positions
+            max_moves: Maximum number of moves allowed
+            
+        Returns:
+            Tuple of (position, path) or None if no position found
+        """
+        debug_print(f"Finding retreat position within {max_moves} moves")
+        
+        # Generate list of all possible positions within movement range
+        possible_positions = self._generate_candidate_positions(character, target, obstacles, max_moves)
+        
+        # Score and sort positions - prioritizing cover and distance from target
+        position_scores = {}
+        for pos in possible_positions:
+            # Get a path to this position
+            path = PathFinder.find_path((character.x, character.y), pos, obstacles, target)
+            
+            # Skip if no path or too far
+            if not path or len(path) > max_moves:
+                continue
+            
+            # Convert target position to integers for the range check
+            target_x_int, target_y_int = int(target.x), int(target.y)
+            
+            # Calculate retreat score - prioritize:
+            # 1. Positions with cover nearby
+            # 2. Positions farther from target
+            # 3. Positions that don't have line of sight (safer)
+            
+            # Cover score - count adjacent obstacles
+            cover_count = sum(1 for dx, dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]
+                           if (pos[0] + dx, pos[1] + dy) in obstacles)
+            cover_score = cover_count * const.AI_SCORE_PER_COVER * 2  # Double cover importance
+            
+            # Distance score - prefer being farther away for retreat
+            dist_to_target = abs(pos[0] - target_x_int) + abs(pos[1] - target_y_int)
+            distance_score = min(100, dist_to_target * 10)  # Cap at 100
+            
+            # Line of sight penalty - prefer NOT having line of sight for safety
+            has_line_of_sight = False
+            if pos[0] == target_x_int or pos[1] == target_y_int:  # Same column or row
+                # Check if path is clear
+                if pos[0] == target_x_int:  # Same column
+                    start_y, end_y = min(pos[1], target_y_int), max(pos[1], target_y_int)
+                    has_line_of_sight = all((pos[0], check_y) not in obstacles 
+                                          for check_y in range(start_y + 1, end_y))
+                else:  # Same row
+                    start_x, end_x = min(pos[0], target_x_int), max(pos[0], target_x_int)
+                    has_line_of_sight = all((check_x, pos[1]) not in obstacles 
+                                          for check_x in range(start_x + 1, end_x))
+            
+            line_of_sight_score = -200 if has_line_of_sight else 0  # Penalty for line of sight
+            
+            # Combined score
+            total_score = cover_score + distance_score + line_of_sight_score
+            position_scores[pos] = (total_score, path)
+        
+        # Find best position
+        if position_scores:
+            best_pos = max(position_scores.items(), key=lambda x: x[1][0])[0]
+            best_score, best_path = position_scores[best_pos]
+            debug_print(f"Best retreat position: {best_pos} Score: {best_score}")
+            return best_pos, best_path
+        
+        # If no position found
+        debug_print("No retreat position found")
+        return None
