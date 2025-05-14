@@ -31,7 +31,8 @@ class AI:
             player: Character, 
             obstacles: List[Tuple[int, int]], 
             projectiles: List[Projectile],
-            redraw_callback: Callable
+            redraw_callback: Callable,
+            game_manager=None
     ) -> str:
         """
         Execute AI's turn with improved tactical decision making.
@@ -39,6 +40,9 @@ class AI:
         1. Attack if player is in line of sight
         2. Move to optimal tactical position
         3. Attack again if possible after movement
+        
+        Args:
+            game_manager: Reference to GameManager for health checks
         """
         debug_print("AI.take_turn called")
         
@@ -55,7 +59,7 @@ class AI:
             
             # Execute the turn in phases
             ai_state = cls._execute_shooting_phase(enemy, player, obstacles, projectiles, redraw_callback)
-            ai_state = cls._execute_movement_phase(enemy, player, obstacles, redraw_callback)
+            ai_state = cls._execute_movement_phase(enemy, player, obstacles, redraw_callback, game_manager)
             ai_state = cls._execute_post_move_shooting(enemy, player, obstacles, projectiles, redraw_callback)
             
             # End turn with status
@@ -104,7 +108,7 @@ class AI:
     @classmethod
     def _execute_movement_phase(
             cls, enemy: Character, player: Character, 
-            obstacles: List[Tuple[int, int]], redraw_callback: Callable
+            obstacles: List[Tuple[int, int]], redraw_callback: Callable, game_manager=None
     ) -> str:
         """Execute the movement phase to reposition tactically."""
         debug_print("Phase 2: Movement/Tactical repositioning")
@@ -124,7 +128,7 @@ class AI:
         if best_move:
             new_pos, path = best_move
             debug_print(f"  Best tactical move: {new_pos} via path of length {len(path)}")
-            cls._movement_executor.execute_movement(enemy, path, redraw_callback)
+            cls._movement_executor.execute_movement(enemy, path, redraw_callback, game_manager)
             debug_print(f"  Movement executed, enemy now at ({enemy.x}, {enemy.y})")
         else:
             debug_print("  No tactical position found, trying simple tactical move")

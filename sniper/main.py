@@ -219,7 +219,9 @@ class GameManager:
                     self.player.health -= dist * const.HEALTH_DAMAGE_PER_MOVE
                     self.player.show_range = False
 
+                    # Ensure health is not negative
                     if self.player.health <= 0:
+                        self.player.health = 0  # Clamp health to zero
                         self._end_game("AI")
     
     def _handle_shooting(self, mouse_pos):
@@ -268,16 +270,18 @@ class GameManager:
                 self.enemy.health -= const.PROJECTILE_DAMAGE
                 self.projectiles.remove(p)
                 
-                # Check if enemy is defeated
+                # Check if enemy is defeated - ensure health is not negative
                 if self.enemy.health <= 0:
+                    self.enemy.health = 0  # Clamp health to zero
                     self._end_game("Player")
             # Check for hit on player
             elif int(p.x) == self.player.x and int(p.y) == self.player.y:
                 self.player.health -= const.PROJECTILE_DAMAGE
                 self.projectiles.remove(p)
                 
-                # Check if player is defeated
+                # Check if player is defeated - ensure health is not negative
                 if self.player.health <= 0:
+                    self.player.health = 0  # Clamp health to zero
                     self._end_game("AI")
 
     def enemy_turn(self):
@@ -325,7 +329,8 @@ class GameManager:
                 self.player, 
                 self.obstacles, 
                 self.projectiles,
-                self._redraw_during_ai_turn
+                self._redraw_during_ai_turn,
+                game_manager=self  # Pass self as game_manager
             )
         except Exception as e:
             debug_print(f"Error during AI turn execution: {e}")
@@ -401,6 +406,21 @@ class GameManager:
     def toggle_commands(self):
         """Toggle the command instructions display."""
         self.ui.show_commands = not self.ui.show_commands
+
+    def check_character_health(self) -> bool:
+        """Check if any character has reached 0 health and end the game if so.
+        Returns True if the game ended, False otherwise."""
+        if self.player and self.player.health <= 0:
+            self.player.health = 0  # Ensure health is not negative
+            self._end_game("AI")
+            return True
+        
+        if self.enemy and self.enemy.health <= 0:
+            self.enemy.health = 0  # Ensure health is not negative
+            self._end_game("Player")
+            return True
+            
+        return False
 
     def run(self):
         """Run the main game loop."""
