@@ -27,7 +27,10 @@ class UI:
             pygame.draw.line(self.surface, const.GRAY, (0, y), (const.SCREEN_WIDTH, y))
     
     def draw_obstacles(self, obstacles: List[Tuple[int, int]]) -> None:
-        """Draw obstacles on the grid."""
+        """
+        Draw obstacles on the grid.
+        This is used when we have a simple list of obstacle positions.
+        """
         for x, y in obstacles:
             rect = pygame.Rect(
                 x * const.GRID_SIZE, 
@@ -36,6 +39,21 @@ class UI:
                 const.GRID_SIZE
             )
             pygame.draw.rect(self.surface, const.GRAY, rect)
+            
+    def draw_scenario(self, scenario_manager) -> None:
+        """
+        Draw the scenario objects with their visual states and animations.
+        This should be used instead of draw_obstacles when using ScenarioManager.
+        """
+        if scenario_manager:
+            scenario_manager.draw(self.surface)
+            
+    def draw_round_info(self, round_number: int) -> None:
+        """Draw round information at the top right of the screen."""
+        round_text = f"Round: {round_number}"
+        text_surf = self.fonts['normal'].render(round_text, True, (220, 180, 100))
+        text_rect = text_surf.get_rect(topright=(const.SCREEN_WIDTH - 10, 10))
+        self.surface.blit(text_surf, text_rect)
     
     def draw_projectiles(self, projectiles: List[Projectile]) -> None:
         """Draw active projectiles."""

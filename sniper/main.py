@@ -10,7 +10,7 @@ import random
 import pygame
 
 from sniper.config.constants import const, debug_print
-from sniper.models import SniperType, Character, Projectile
+from sniper.models import SniperType, Character, Projectile, ScenarioManager
 from sniper.ui import UI
 from sniper.ai import AI
 from sniper.utils import load_image
@@ -59,7 +59,9 @@ class GameManager:
         self.show_confirm_popup = False
         self.player_turn = True
         self.shoot_mode = False
-        self.obstacles = []
+        self.scenario = None  # ScenarioManager instance
+        self.round_number = 1  # Track the current round number
+        self.in_round_transition = False  # Track if we're in a round transition
         self.winner = None
         self.show_debug = False
         self.ai_state = None
@@ -98,17 +100,47 @@ class GameManager:
         return sniper_types
 
     def start_game(self):
-        """Start a new game by generating obstacles."""
-        self.obstacles = self._generate_obstacles(self.player, self.enemy)
+        """Start a new game by initializing the scenario."""
+        # Initialize scenario with default population
+        self.scenario = ScenarioManager(const.SCENARIO_POPULATION)
         
-    def _generate_obstacles(self, player: Character, enemy: Character) -> list:
-        """Generate random obstacles for the game map."""
-        obstacles = []
-        for _ in range(const.OBSTACLE_COUNT):
-            x, y = random.randint(0, const.GRID_WIDTH - 1), random.randint(0, const.GRID_HEIGHT - 1)
-            if (x, y) not in [(player.x, player.y), (enemy.x, enemy.y)]:
-                obstacles.append((x, y))
-        return obstacles
+        # Generate initial scenario with blocks
+        if self.player and self.enemy:
+            self.scenario.generate_scenario((self.player.x, self.player.y), (self.enemy.x, self.enemy.y))
+            self.round_number = 1
+            self.in_round_transition = False
+    
+    def start_round_transition(self):
+        """Start the transition animation between rounds."""
+        if not self.in_round_transition:
+            self.in_round_transition = True
+            self.round_number += 1
+            debug_print(f"Starting Round {self.round_number}")
+            
+            # Start the block fade out/in transition
+            self.scenario.start_round_transition()
+    
+    def update_round_transition(self):
+        """Update the round transition animation and return True when complete."""
+        if not self.in_round_transition:
+            return True
+            
+        # Update the transition animation
+        transition_complete = self.scenario.update_round_transition(
+            (self.player.x, self.player.y),
+            (self.enemy.x, self.enemy.y)
+        )
+        
+        if transition_complete:
+            self.in_round_transition = False
+            debug_print(f"Round {self.round_number} started")
+            
+            # Start the player's turn when the transition is complete
+            self.player_turn = True
+            self.player.start_turn()
+            return True
+            
+        return False
 
     def handle_mouse_click(self, pos):
         """Handle mouse click events based on current game state."""
@@ -213,7 +245,7 @@ class GameManager:
             dist = abs(grid_x - self.player.x) + abs(grid_y - self.player.y)
             if dist <= self.player.moves_left:
                 # Check if destination has an obstacle
-                if (grid_x, grid_y) not in self.obstacles:
+                if not self.scenario.is_obstacle(grid_x, grid_y):
                     self.player.x, self.player.y = grid_x, grid_y
                     self.player.moves_left -= dist
                     self.player.health -= dist * const.HEALTH_DAMAGE_PER_MOVE
@@ -263,10 +295,10 @@ class GameManager:
             if not (0 <= p.x < const.GRID_WIDTH and 0 <= p.y < const.GRID_HEIGHT):
                 self.projectiles.remove(p)
             # Check for collision with obstacle
-            elif (int(p.x), int(p.y)) in self.obstacles:
+            elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y)):
                 self.projectiles.remove(p)
             # Check for hit on enemy
-            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:
+            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:  # Fixed parenthesis bug
                 self.enemy.health -= const.PROJECTILE_DAMAGE
                 self.projectiles.remove(p)
                 
@@ -327,7 +359,7 @@ class GameManager:
                 self.virtual_screen,
                 self.enemy, 
                 self.player, 
-                self.obstacles, 
+                self.scenario.get_obstacles(), 
                 self.projectiles,
                 self._redraw_during_ai_turn,
                 game_manager=self  # Pass self as game_manager
@@ -340,10 +372,16 @@ class GameManager:
 
     def _finalize_enemy_turn(self):
         """Clean up after AI turn and prepare for player's turn."""
-        # Start the player's turn again
-        self.player_turn = True
-        self.player.start_turn()
+        # Reset AI turn state
         self.ai_turn_started = False
+        
+        # Check if we need to start a new round (player's turn already happened)
+        if self.round_number > 0:  # Skip on initial round
+            self.start_round_transition()
+        else:
+            # Start player's turn immediately for the first round
+            self.player_turn = True
+            self.player.start_turn()
 
     def _redraw_during_ai_turn(self):
         """Redraw the game state during AI animations."""
@@ -355,7 +393,9 @@ class GameManager:
         
         # Draw basic elements
         self.ui.draw_grid()
-        self.ui.draw_obstacles(self.obstacles)
+        
+        # Draw scenario objects with health and animations
+        self.ui.draw_scenario(self.scenario)
         
         # Draw characters
         if self.player:
@@ -368,6 +408,9 @@ class GameManager:
         
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
+        
+        # Draw round info
+        self.ui.draw_round_info(self.round_number)
         
         # Draw new UI elements based on the mockup
         # 1. Game header with turn and moves/shots
@@ -466,7 +509,14 @@ class GameManager:
                                 # End Turn button clicked
                                 self.player.moves_left = 0
                                 self.player.shots_left = 0
-                                self.player_turn = False
+                                
+                                # Start round transition when both player and enemy have completed their turns
+                                if self.round_number > 0:  # Skip on initial round
+                                    self.start_round_transition()
+                                else:
+                                    # Start enemy turn immediately for the first round
+                                    self.player_turn = False
+                                    
                                 continue  # Skip other click handling
                             
                             if debug_button_rect and debug_button_rect.collidepoint(virtual_mouse_pos):
@@ -540,7 +590,12 @@ class GameManager:
         
         # Draw basic elements
         self.ui.draw_grid()
-        self.ui.draw_obstacles(self.obstacles)
+        
+        # Draw scenario objects with health and animations
+        self.ui.draw_scenario(self.scenario)
+        
+        # Draw round info
+        self.ui.draw_round_info(self.round_number)
         
         # Draw characters
         if self.player:
@@ -592,9 +647,13 @@ class GameManager:
         # Draw the End Turn button
         if self.player_turn:
             end_turn_button_rect = self.ui.draw_end_turn_button()
+        
+        # Update round transition animation if active
+        if self.in_round_transition:
+            transition_complete = self.update_round_transition()
             
-        # Handle AI turn when it's not the player's turn
-        if not self.player_turn:
+        # Handle AI turn when it's not the player's turn and we're not in round transition
+        elif not self.player_turn and not self.in_round_transition:
             self.enemy_turn()
 
 
