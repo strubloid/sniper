@@ -558,14 +558,85 @@ class UI:
     def draw_character_select(self, stage: str, selected: Optional[Any], 
                             sniper_types: List) -> List[Tuple[pygame.Rect, str, int]]:
         """Draw the character selection screen."""
-        # Black background
-        self.surface.fill((0, 0, 0))
+        # Apply themed background if a character is selected
+        if selected:
+            # Create a darker version of the character's color for the background
+            char_color = selected.color if hasattr(selected, 'color') else (100, 100, 100)
+            bg_color = (
+                max(0, char_color[0] * 0.15),  # Darker R
+                max(0, char_color[1] * 0.15),  # Darker G
+                max(0, char_color[2] * 0.15)   # Darker B
+            )
+            accent_color = char_color
+            glow_color = (
+                min(255, char_color[0] + 40),
+                min(255, char_color[1] + 40),
+                min(255, char_color[2] + 40)
+            )
+            
+            # Fill with dark themed background
+            self.surface.fill(bg_color)
+            
+            # Add tech patterns - horizontal lines for a high-tech feel
+            for y in range(0, const.SCREEN_HEIGHT, 20):
+                alpha = 10 + (y % 40) // 20 * 5  # Alternate line opacity
+                pygame.draw.line(self.surface, (*accent_color, alpha), 
+                                (0, y), (const.SCREEN_WIDTH, y), 1)
+            
+            # Add decorative hexagons matching character theme
+            for _ in range(8):
+                x = random.randint(50, const.SCREEN_WIDTH - 50)
+                y = random.randint(50, const.SCREEN_HEIGHT - 50)
+                size = random.randint(20, 80)
+                alpha = random.randint(10, 25)
+                
+                self.draw_hexagonal_button(
+                    self.surface,
+                    center_pos=(x, y),
+                    radius=size,
+                    color=bg_color,
+                    border_color=accent_color,
+                    enabled=True,
+                    alpha=alpha
+                )
+        else:
+            # Default black background if no character selected
+            self.surface.fill((0, 0, 0))
         
-        # Title text
+        # Title text with glow effect if character selected
         title = f"Select {stage.capitalize()} Character"
-        title_text = self.fonts['big'].render(title, True, const.WHITE)
-        title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
-        self.surface.blit(title_text, title_rect)
+        if selected:
+            title_glow = self.fonts['big'].render(title, True, glow_color)
+            title_text = self.fonts['big'].render(title, True, accent_color)
+            title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
+            # Add glow behind text
+            self.surface.blit(title_glow, (title_rect.x + 1, title_rect.y + 1))
+            self.surface.blit(title_text, title_rect)
+            
+            # Add decorative hex symbols beside title
+            self.draw_hexagonal_button(
+                self.surface,
+                center_pos=(title_rect.left - 30, 50),
+                radius=10,
+                color=bg_color,
+                border_color=accent_color,
+                enabled=True,
+                alpha=230
+            )
+            self.draw_hexagonal_button(
+                self.surface,
+                center_pos=(title_rect.right + 30, 50),
+                radius=10,
+                color=bg_color,
+                border_color=accent_color,
+                enabled=True,
+                alpha=230
+            )
+        else:
+            # Standard white title if no character selected
+            title_text = self.fonts['big'].render(title, True, const.WHITE)
+            title_rect = title_text.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
+            self.surface.blit(title_text, title_rect)
         
         clickable_elements = []
         
@@ -580,10 +651,41 @@ class UI:
             x_pos = start_x + i * 200  # 180px box + 20px spacing
             y_pos = 150  # Start y position for character boxes
             
-            # Character box background
+            # Character box background - apply styling based on selection
             char_rect = pygame.Rect(x_pos, y_pos, 180, 180)
-            bg_color = (200, 200, 200) if selected == sniper_type else (100, 100, 100)
-            pygame.draw.rect(self.surface, bg_color, char_rect)
+            
+            if selected == sniper_type:
+                # Selected character gets themed styling with glow
+                char_color = sniper_type.color if hasattr(sniper_type, 'color') else (200, 200, 200)
+                
+                # Draw glow effect for selected character
+                glow_surf = pygame.Surface((char_rect.width + 10, char_rect.height + 10), pygame.SRCALPHA)
+                glow_color = (
+                    min(255, char_color[0] + 40),
+                    min(255, char_color[1] + 40),
+                    min(255, char_color[2] + 40)
+                )
+                
+                for i in range(5):
+                    glow_alpha = 50 - i * 10
+                    glow_rect = pygame.Rect(i, i, char_rect.width + 10 - i*2, char_rect.height + 10 - i*2)
+                    pygame.draw.rect(glow_surf, (*glow_color, glow_alpha), glow_rect, border_radius=15)
+                
+                self.surface.blit(glow_surf, (char_rect.x - 5, char_rect.y - 5))
+                
+                # Draw character box with themed color and border
+                self.draw_rounded_rect(
+                    self.surface,
+                    (max(20, char_color[0] * 0.4), max(20, char_color[1] * 0.4), max(20, char_color[2] * 0.4)),
+                    char_rect,
+                    radius=10,
+                    border_width=3,
+                    border_color=char_color
+                )
+            else:
+                # Non-selected characters get simple dark styling
+                pygame.draw.rect(self.surface, (70, 70, 70), char_rect)
+                pygame.draw.rect(self.surface, (100, 100, 100), char_rect, 2)  # Border
             
             # Character sprite
             sprite_rect = pygame.Rect(x_pos + 25, y_pos + 25, 130, 130)
@@ -592,35 +694,76 @@ class UI:
                 self.surface.blit(scaled_sprite, sprite_rect)
             else:
                 # Draw a colored rectangle if no sprite
-                pygame.draw.rect(self.surface, sniper_type.color, sprite_rect)
+                pygame.draw.rect(self.surface, sniper_type.color if hasattr(sniper_type, 'color') else (200, 0, 0), sprite_rect)
             
-            # Character name - below the sprite box
-            name_text = self.fonts['big'].render(sniper_type.name, True, const.WHITE)
-            name_rect = name_text.get_rect(center=(x_pos + 90, y_pos + 210))
-            self.surface.blit(name_text, name_rect)
+            # Character name with glow effect if selected
+            if selected == sniper_type and hasattr(sniper_type, 'color'):
+                glow_color = (
+                    min(255, sniper_type.color[0] + 40),
+                    min(255, sniper_type.color[1] + 40),
+                    min(255, sniper_type.color[2] + 40)
+                )
+                name_glow = self.fonts['big'].render(sniper_type.name, True, glow_color)
+                name_text = self.fonts['big'].render(sniper_type.name, True, sniper_type.color)
+                name_rect = name_text.get_rect(center=(x_pos + 90, y_pos + 210))
+                
+                # Add glow effect
+                self.surface.blit(name_glow, (name_rect.x + 1, name_rect.y + 1))
+                self.surface.blit(name_text, name_rect)
+            else:
+                name_text = self.fonts['big'].render(sniper_type.name, True, const.WHITE)
+                name_rect = name_text.get_rect(center=(x_pos + 90, y_pos + 210))
+                self.surface.blit(name_text, name_rect)
             
-            # Character description - below the name
-            desc_text = self.fonts['normal'].render(sniper_type.description, True, const.WHITE)
+            # Character description - with theme if selected
+            if selected == sniper_type and hasattr(sniper_type, 'color'):
+                desc_text = self.fonts['normal'].render(sniper_type.description, True, sniper_type.color)
+            else:
+                desc_text = self.fonts['normal'].render(sniper_type.description, True, const.WHITE)
+                
             desc_rect = desc_text.get_rect(center=(x_pos + 90, y_pos + 240))
             self.surface.blit(desc_text, desc_rect)
             
             # Add to clickable elements
             clickable_elements.append((char_rect, "character", i))
         
-        # Draw select button if character is selected
+        # Draw select button if character is selected - themed with character color
         if selected:
+            select_button_width = 300
+            select_button_height = 70
             select_button_rect = pygame.Rect(
-                const.SCREEN_WIDTH // 2 - 150,
+                const.SCREEN_WIDTH // 2 - select_button_width // 2,
                 const.SCREEN_HEIGHT - 100,
-                300,
-                70
+                select_button_width,
+                select_button_height
             )
-            pygame.draw.rect(self.surface, (200, 200, 200), select_button_rect)
-            pygame.draw.rect(self.surface, (50, 50, 50), select_button_rect, 2)
             
-            button_text = self.fonts['normal'].render(f"Select {selected.name}", True, (0, 0, 0))
-            button_text_rect = button_text.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT - 65))
-            self.surface.blit(button_text, button_text_rect)
+            char_color = selected.color if hasattr(selected, 'color') else (200, 200, 200)
+            glow_color = (
+                min(255, char_color[0] + 40),
+                min(255, char_color[1] + 40),
+                min(255, char_color[2] + 40)
+            )
+            
+            # Create button with character theme
+            self.draw_rounded_rect(
+                self.surface,
+                (max(40, char_color[0] * 0.5), max(40, char_color[1] * 0.5), max(40, char_color[2] * 0.5)),
+                select_button_rect,
+                radius=15,
+                border_width=3,
+                border_color=char_color
+            )
+            
+            # Button text with glow
+            button_text = f"Select {selected.name}"
+            text_glow = self.fonts['big'].render(button_text, True, glow_color)
+            text_surf = self.fonts['big'].render(button_text, True, (255, 255, 255))
+            text_rect = text_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT - 65))
+            
+            # Add glow effect
+            self.surface.blit(text_glow, (text_rect.x + 1, text_rect.y + 1))
+            self.surface.blit(text_surf, text_rect)
             
             clickable_elements.append((select_button_rect, "select_button", None))
         
