@@ -112,13 +112,15 @@ class UI:
     
     def draw_end_turn_button(self) -> pygame.Rect:
         """Draw the end turn button."""
-        # Position in the bottom panel, centered
+        # Position in the bottom panel, right-aligned with 40px margin
+        button_width = 160
+        button_height = 40
         button_rect = pygame.Rect(
-            const.SCREEN_WIDTH // 2 - 80,  # Centered horizontally
-            const.SCREEN_HEIGHT - 50,      # Near bottom of screen
-            160,  # Width
-            40,   # Height
-            )
+            const.SCREEN_WIDTH - button_width - 40,  # Right-aligned with 40px margin
+            const.SCREEN_HEIGHT - 70,                # Vertically centered in the bottom HUD
+            button_width,
+            button_height
+        )
         pygame.draw.rect(self.surface, (80, 30, 20), button_rect)  # Brown background
         pygame.draw.rect(self.surface, (220, 180, 100), button_rect, 2)  # Gold border
         
@@ -131,11 +133,11 @@ class UI:
     
     def draw_debug_button(self) -> pygame.Rect:
         """Draw the debug toggle button."""
-        # Position in the header - center left
+        # Position in the header - left corner
         button_rect = pygame.Rect(
-            80,  # Left position
+            10,  # Left position - very close to the left edge
             5,   # Vertically centered in the header
-            80,  # Narrower width (80px)
+            80,  # Width (80px)
             30   # Height
         )
         pygame.draw.rect(self.surface, (80, 30, 20), button_rect)  # Brown background
@@ -152,7 +154,7 @@ class UI:
         """Draw the button to toggle command instructions visibility."""
         # Position in the header - to the right of debug
         button_rect = pygame.Rect(
-            180,  # To the right of Debug button
+            100,  # To the right of Debug button
             5,    # Vertically centered in the header
             100,  # Width
             30,   # Height
@@ -511,7 +513,7 @@ class UI:
         name_text = self.fonts['big'].render(player.sniper_type.name, True, (220, 180, 100))
         self.surface.blit(name_text, (stats_x, const.SCREEN_HEIGHT - panel_height + 15))
         
-        # Health/XP bar
+        # Health/XP bar - red bar with clear 100/100 styling
         health_width = 150
         health_rect = pygame.Rect(stats_x, const.SCREEN_HEIGHT - panel_height + 50, health_width, 15)
         pygame.draw.rect(self.surface, (150, 30, 30), health_rect)  # Red background
@@ -523,46 +525,77 @@ class UI:
                                              current_health_width, 15)
             pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
         
-        # Health text (72/100)
+        # Health text (100/100) below the bar
         health_text = f"{int(player.health)}/100"
         health_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
         self.surface.blit(health_surf, (stats_x, const.SCREEN_HEIGHT - panel_height + 70))
         
-        # Courage value (118)
+        # Courage value (118) - large number to the right of health
         courage_value = "118"  # Placeholder for future implementation
         courage_text = self.fonts['big'].render(courage_value, True, (220, 180, 100))
         self.surface.blit(courage_text, (stats_x + 100, const.SCREEN_HEIGHT - panel_height + 65))
         
-        # CENTER/RIGHT SECTION - Powers
-        # "Sniper Power" header
-        power_x = const.SCREEN_WIDTH // 2
+        # CENTER SECTION - Powers - moved to better match screenshot
+        # "Sniper Power" header - positioned to the right of portrait/stats
+        power_x = stats_x + 220
         power_header = self.fonts['normal'].render("Sniper Power", True, (220, 180, 100))
         self.surface.blit(power_header, (power_x, const.SCREEN_HEIGHT - panel_height + 15))
         
-        # Selected Power 
+        # Selected Power - positioned below header
         selected_power_text = self.fonts['big'].render("Stealth Shot", True, (220, 180, 100))
         self.surface.blit(selected_power_text, (power_x, const.SCREEN_HEIGHT - panel_height + 40))
         
-        # Power icons
-        power_icon_size = 50
-        icon_spacing = 20
+        # RIGHT SECTION - Power buttons and End Turn
+        # Calculate positions from right to left
+        button_width = 160
+        button_height = 40
+        end_turn_rect = pygame.Rect(
+            const.SCREEN_WIDTH - button_width - 40,  # Right-aligned with 40px margin
+            const.SCREEN_HEIGHT - 70,                # Vertically centered in the bottom HUD
+            button_width,
+            button_height
+        )
         
-        # Define power positions
-        power_positions = [
-            (power_x + 200, const.SCREEN_HEIGHT - panel_height + 50, "Fireball"),
-            (power_x + 280, const.SCREEN_HEIGHT - panel_height + 50, "Bouncing Shot")
-        ]
+        # Power button size
+        power_icon_size = 40
         
-        # Draw power icons
-        for x, y, power_name in power_positions:
-            power_rect = pygame.Rect(x, y, power_icon_size, power_icon_size)
-            pygame.draw.rect(self.surface, (150, 50, 30), power_rect)  # Orange-red for powers
-            pygame.draw.rect(self.surface, (220, 180, 100), power_rect, 2)  # Gold border
-            
-            # Draw power name under icon (smaller font)
-            name_surf = self.fonts['normal'].render(power_name, True, (220, 180, 100))
-            name_rect = name_surf.get_rect(center=(x + power_icon_size // 2, y + power_icon_size + 10))
-            self.surface.blit(name_surf, name_rect)
+        # Power 2 button - 40px from End Turn button
+        power2_rect = pygame.Rect(
+            end_turn_rect.left - power_icon_size - 40,  # 40px left of End Turn
+            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
+            power_icon_size, 
+            power_icon_size
+        )
+        pygame.draw.rect(self.surface, (80, 30, 20), power2_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), power2_rect, 2)  # Gold border
+        
+        # Power 1 button - 40px from Power 2 button
+        power1_rect = pygame.Rect(
+            power2_rect.left - power_icon_size - 40,  # 40px left of Power 2
+            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
+            power_icon_size, 
+            power_icon_size
+        )
+        pygame.draw.rect(self.surface, (80, 30, 20), power1_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), power1_rect, 2)  # Gold border
+        
+        # Power labels
+        power1_text = self.fonts['normal'].render("Power 1", True, (220, 180, 100))
+        power1_text_rect = power1_text.get_rect(center=(power1_rect.centerx, power1_rect.bottom + 15))
+        self.surface.blit(power1_text, power1_text_rect)
+        
+        power2_text = self.fonts['normal'].render("Power 2", True, (220, 180, 100))
+        power2_text_rect = power2_text.get_rect(center=(power2_rect.centerx, power2_rect.bottom + 15))
+        self.surface.blit(power2_text, power2_text_rect)
+        
+        # Draw the End Turn button
+        pygame.draw.rect(self.surface, (80, 30, 20), end_turn_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), end_turn_rect, 2)  # Gold border
+        
+        # End Turn text
+        end_turn_text = self.fonts['normal'].render("End Turn", True, (220, 180, 100))
+        end_turn_text_rect = end_turn_text.get_rect(center=end_turn_rect.center)
+        self.surface.blit(end_turn_text, end_turn_text_rect)
     
     def draw_enemy_info_box(self, enemy: Character) -> None:
         """Draw the enemy info box above the enemy character."""
