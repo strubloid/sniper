@@ -245,7 +245,8 @@ class GameManager:
             dist = abs(grid_x - self.player.x) + abs(grid_y - self.player.y)
             if dist <= self.player.moves_left:
                 # Check if destination has an obstacle
-                if not self.scenario.is_obstacle(grid_x, grid_y):
+                has_obstacle = (self.scenario and self.scenario.is_obstacle(grid_x, grid_y))
+                if not has_obstacle:  # Only move if there's no obstacle
                     self.player.x, self.player.y = grid_x, grid_y
                     self.player.moves_left -= dist
                     self.player.health -= dist * const.HEALTH_DAMAGE_PER_MOVE
@@ -298,7 +299,7 @@ class GameManager:
             elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y)):
                 self.projectiles.remove(p)
             # Check for hit on enemy
-            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:  # Fixed parenthesis bug
+            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:  # Fixed critical parenthesis bug
                 self.enemy.health -= const.PROJECTILE_DAMAGE
                 self.projectiles.remove(p)
                 
@@ -355,19 +356,38 @@ class GameManager:
         """Execute the AI turn logic with proper rendering updates."""
         try:
             # Pass game state to AI controller and get updated AI state
+            # Make sure we pass obstacles in the correct format (simple list of position tuples)
+            obstacles = self.scenario.obstacles if self.scenario else []
+            
+            # More visible debug messages
+            print("=============================================")
+            print(f"AI TURN STARTED - Round {self.round_number}")
+            print(f"AI enemy position: {self.enemy.x},{self.enemy.y}")
+            print(f"AI moves available: {self.enemy.moves_left}")
+            print(f"AI shots available: {self.enemy.shots_left}")
+            print(f"Player position: {self.player.x},{self.player.y}")
+            print(f"Obstacles count: {len(obstacles)}")
+            
+            # Debug the obstacles being passed to the AI
+            debug_print(f"AI obstacles: {obstacles}")
+            
             self.ai_state = AI.take_turn(
                 self.virtual_screen,
                 self.enemy, 
                 self.player, 
-                self.scenario.get_obstacles(), 
+                obstacles,  # Use the obstacles property which returns position tuples
                 self.projectiles,
                 self._redraw_during_ai_turn,
                 game_manager=self  # Pass self as game_manager
             )
+            
+            print(f"AI TURN COMPLETED - Final position: {self.enemy.x},{self.enemy.y}")
+            print("=============================================")
+            
         except Exception as e:
-            debug_print(f"Error during AI turn execution: {e}")
+            print(f"ERROR during AI turn execution: {e}")
             import traceback
-            debug_print(traceback.format_exc())
+            print(traceback.format_exc())
             self.ai_state = const.AI_STATE_END
 
     def _finalize_enemy_turn(self):
@@ -375,23 +395,27 @@ class GameManager:
         # Reset AI turn state
         self.ai_turn_started = False
         
-        # Check if we need to start a new round (player's turn already happened)
-        if self.round_number > 0:  # Skip on initial round
-            self.start_round_transition()
-        else:
-            # Start player's turn immediately for the first round
+        # After the enemy's turn, switch to player's turn
+        # But first check if we're in the first round or not
+        if self.round_number < 2:  # First round
+            # Start player's turn immediately after AI's turn in first round
             self.player_turn = True
             self.player.start_turn()
+        else:
+            # Start round transition only after both player and AI have taken their turns
+            self.start_round_transition()
+            
+        print(f"AI turn finalized. player_turn={self.player_turn}, round={self.round_number}")
 
     def _redraw_during_ai_turn(self):
         """Redraw the game state during AI animations."""
         # Fill screens
         self.screen.fill(const.BLACK)
         
-        # Fill background with brown color to match the gameplay style
-        self.virtual_screen.fill((110, 70, 40))
+        # Draw space background with stars
+        self.ui.draw_space_background()
         
-        # Draw basic elements
+        # Draw grid on top of space background
         self.ui.draw_grid()
         
         # Draw scenario objects with health and animations
@@ -510,13 +534,11 @@ class GameManager:
                                 self.player.moves_left = 0
                                 self.player.shots_left = 0
                                 
-                                # Start round transition when both player and enemy have completed their turns
-                                if self.round_number > 0:  # Skip on initial round
-                                    self.start_round_transition()
-                                else:
-                                    # Start enemy turn immediately for the first round
-                                    self.player_turn = False
-                                    
+                                # Set player's turn to false so AI can take its turn
+                                self.player_turn = False
+                                print("Player turn ended. Switching to AI turn.")
+                                
+                                # No need to start round transition here - that happens after AI's turn
                                 continue  # Skip other click handling
                             
                             if debug_button_rect and debug_button_rect.collidepoint(virtual_mouse_pos):
@@ -585,13 +607,13 @@ class GameManager:
 
     def _render_gameplay(self):
         """Render the gameplay state."""
-        # Fill background
-        self.virtual_screen.fill((110, 70, 40))  # Brown background like in the screenshot
+        # Fill background with space theme
+        self.ui.draw_space_background()
         
-        # Draw basic elements
+        # Draw grid on top of space background
         self.ui.draw_grid()
         
-        # Draw scenario objects with health and animations
+        # Draw scenario objects (asteroids) with health and animations
         self.ui.draw_scenario(self.scenario)
         
         # Draw round info

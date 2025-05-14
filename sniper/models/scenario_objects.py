@@ -1,7 +1,7 @@
 """
 Scenario Objects module for the Sniper Game.
 
-This module contains classes for scenario objects like blocks/obstacles
+This module contains classes for scenario objects like asteroids/obstacles
 with health states and animation capabilities.
 """
 import time
@@ -12,12 +12,12 @@ from sniper.config.constants import const, debug_print
 
 class Block:
     """
-    Class representing a block/obstacle in the game scenario with health
+    Class representing an asteroid/obstacle in the game scenario with health
     and animation capabilities.
     """
     
     def __init__(self, x: int, y: int):
-        """Initialize a block with position and full health."""
+        """Initialize an asteroid with position and full health."""
         self.x = x
         self.y = y
         self.health = const.BLOCK_MAX_HEALTH
@@ -27,6 +27,12 @@ class Block:
         self.is_appearing = False
         self.animation_start_time = 0
         self.alpha = 255  # Full opacity
+        
+        # Random rotation for asteroid appearance
+        import random
+        self.rotation = random.randint(0, 360)
+        # Random size variation (0.7 to 1.0 of grid size)
+        self.size_factor = 0.7 + random.random() * 0.3
     
     @property
     def position(self) -> Tuple[int, int]:
@@ -35,25 +41,25 @@ class Block:
     
     @property
     def is_destroyed(self) -> bool:
-        """Check if the block is destroyed (health <= 0)."""
+        """Check if the asteroid is destroyed (health <= 0)."""
         return self.health <= 0
     
     @property
     def color(self) -> Tuple[int, int, int]:
-        """Get the color based on the block's health."""
+        """Get the color based on the asteroid's health."""
         if self.health >= const.BLOCK_MAX_HEALTH:
-            return const.BLOCK_HEALTHY
+            return const.ASTEROID_HEALTHY
         elif self.health == 2:
-            return const.BLOCK_DAMAGED
+            return const.ASTEROID_DAMAGED
         else:
-            return const.BLOCK_CRITICAL
+            return const.ASTEROID_CRITICAL
     
     def take_damage(self, damage: int = 1) -> bool:
         """
-        Apply damage to the block and return True if the block is destroyed.
+        Apply damage to the asteroid and return True if the asteroid is destroyed.
         """
         self.health -= damage
-        debug_print(f"Block at {self.position} took damage. Health: {self.health}")
+        # debug_print(f"Asteroid at {self.position} took damage. Health: {self.health}")
         return self.is_destroyed
     
     def start_fade_out(self):
@@ -61,7 +67,7 @@ class Block:
         self.is_fading = True
         self.is_appearing = False
         self.animation_start_time = time.time() * 1000  # Current time in ms
-        debug_print(f"Block at {self.position} starting fade out")
+        # debug_print(f"Asteroid at {self.position} starting fade out")
     
     def start_fade_in(self):
         """Start the fade in animation."""
@@ -69,7 +75,7 @@ class Block:
         self.is_fading = False
         self.animation_start_time = time.time() * 1000  # Current time in ms
         self.alpha = 0  # Start completely transparent
-        debug_print(f"Block at {self.position} starting fade in")
+        # debug_print(f"Asteroid at {self.position} starting fade in")
     
     def update_animation(self) -> bool:
         """
@@ -105,16 +111,10 @@ class Block:
         return False
     
     def draw(self, surface: pygame.Surface) -> None:
-        """Draw the block on the surface with appropriate health state and animation."""
-        rect = pygame.Rect(
-            self.x * const.GRID_SIZE,
-            self.y * const.GRID_SIZE,
-            const.GRID_SIZE,
-            const.GRID_SIZE
-        )
-        
+        """Draw the asteroid on the surface with appropriate health state and animation."""
         # Create a transparent surface for animation
-        block_surface = pygame.Surface((const.GRID_SIZE, const.GRID_SIZE), pygame.SRCALPHA)
+        size = int(const.GRID_SIZE * self.size_factor)
+        asteroid_surface = pygame.Surface((size, size), pygame.SRCALPHA)
         
         # Get base color based on health
         base_color = self.color
@@ -122,25 +122,60 @@ class Block:
         # Apply alpha for animations
         color_with_alpha = (*base_color, self.alpha)
         
-        # Draw the block with appropriate transparency
-        pygame.draw.rect(block_surface, color_with_alpha, block_surface.get_rect())
+        # Draw the asteroid with irregular shape instead of a rectangle
+        center = (size // 2, size // 2)
+        radius = size // 2 - 2
+        
+        # Draw main asteroid body (circle)
+        pygame.draw.circle(asteroid_surface, color_with_alpha, center, radius)
+        
+        # Add some crater details
+        if self.health == const.BLOCK_MAX_HEALTH:
+            # Healthy asteroid - just a few small craters
+            crater_color = (max(0, base_color[0] - 20), 
+                           max(0, base_color[1] - 20), 
+                           max(0, base_color[2] - 20), 
+                           self.alpha)
+            
+            # Add 2-3 small craters with 50% opacity
+            import random
+            for _ in range(random.randint(2, 3)):
+                crater_pos = (
+                    center[0] + random.randint(-radius//2, radius//2),
+                    center[1] + random.randint(-radius//2, radius//2)
+                )
+                crater_size = random.randint(2, 5)
+                pygame.draw.circle(asteroid_surface, crater_color, crater_pos, crater_size)
         
         # Add visual indicators for damaged state
-        if self.health < const.BLOCK_MAX_HEALTH and self.health > 0:
-            # Add cracks or visual damage indicators
-            crack_color = (30, 30, 30, self.alpha)
+        elif self.health < const.BLOCK_MAX_HEALTH and self.health > 0:
+            # Darker crater color for more contrast
+            crater_color = (max(0, base_color[0] - 30), 
+                           max(0, base_color[1] - 30), 
+                           max(0, base_color[2] - 30), 
+                           self.alpha)
             
-            if self.health == 2:  # Damaged - one crack
-                pygame.draw.line(block_surface, crack_color, 
-                                (5, 5), (const.GRID_SIZE - 5, const.GRID_SIZE - 5), 2)
-            elif self.health == 1:  # Critical - two cracks
-                pygame.draw.line(block_surface, crack_color, 
-                                (5, 5), (const.GRID_SIZE - 5, const.GRID_SIZE - 5), 2)
-                pygame.draw.line(block_surface, crack_color, 
-                                (const.GRID_SIZE - 5, 5), (5, const.GRID_SIZE - 5), 2)
+            if self.health == 2:  # Damaged - one big crack
+                pygame.draw.line(asteroid_surface, crater_color, 
+                                (center[0] - radius//2, center[1] - radius//2), 
+                                (center[0] + radius//2, center[1] + radius//2), 
+                                3)
+            elif self.health == 1:  # Critical - two big cracks
+                pygame.draw.line(asteroid_surface, crater_color, 
+                                (center[0] - radius//2, center[1] - radius//2), 
+                                (center[0] + radius//2, center[1] + radius//2), 
+                                3)
+                pygame.draw.line(asteroid_surface, crater_color, 
+                                (center[0] + radius//2, center[1] - radius//2), 
+                                (center[0] - radius//2, center[1] + radius//2), 
+                                3)
         
-        # Blit the block surface onto the main surface
-        surface.blit(block_surface, rect)
+        # Calculate position to center the asteroid in the grid cell
+        x = self.x * const.GRID_SIZE + (const.GRID_SIZE - size) // 2
+        y = self.y * const.GRID_SIZE + (const.GRID_SIZE - size) // 2
+        
+        # Blit the asteroid surface onto the main surface
+        surface.blit(asteroid_surface, (x, y))
 
 
 class ScenarioManager:

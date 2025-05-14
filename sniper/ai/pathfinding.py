@@ -17,8 +17,18 @@ class PathFinder:
         Find a path from start to end, avoiding obstacles and player.
         Uses A* algorithm for optimal pathfinding.
         """
-        # Convert obstacles to a set for faster lookup
-        obstacles_set = set(obstacles + [(player.x, player.y)])
+        debug_print(f"Pathfinding from {start} to {end}")
+        debug_print(f"Obstacles count: {len(obstacles)}")
+        
+        # Major bug fix: Only avoid the player position if they're not the target
+        # This was preventing the AI from finding paths to attack the player
+        player_pos = (int(player.x), int(player.y))
+        if end == player_pos:
+            obstacles_set = set(obstacles)  # Don't avoid player if it's the target
+            debug_print("Target is player, not avoiding player position")
+        else:
+            obstacles_set = set(obstacles + [player_pos])
+            debug_print("Adding player position to obstacles")
         
         # A* algorithm implementation
         open_set = {start}
@@ -29,7 +39,12 @@ class PathFinder:
         g_score = {start: 0}  # Cost from start to current node
         f_score = {start: PathFinder._manhattan_distance(start, end)}  # Estimated total cost
         
-        while open_set:
+        iterations = 0
+        max_iterations = const.GRID_WIDTH * const.GRID_HEIGHT  # Prevent infinite loops
+        
+        while open_set and iterations < max_iterations:
+            iterations += 1
+            
             # Find node with lowest f_score
             current = min(open_set, key=lambda pos: f_score.get(pos, float('inf')))
             
@@ -40,6 +55,7 @@ class PathFinder:
                 while current in came_from:
                     path.append(current)
                     current = came_from[current]
+                debug_print(f"Path found with {len(path)} steps")
                 return path[::-1]  # Reverse to get start-to-end
             
             # Process current node
@@ -68,7 +84,10 @@ class PathFinder:
                         open_set.add(neighbor)
         
         # No path found
-        debug_print("No path found")
+        if iterations >= max_iterations:
+            debug_print("Pathfinding aborted after too many iterations")
+        else:
+            debug_print("No path found - no valid route to destination")
         return []
     
     @staticmethod

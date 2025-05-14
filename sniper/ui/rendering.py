@@ -20,12 +20,39 @@ class UI:
         self.show_commands = False  # Add toggle for commands visibility
         
     def draw_grid(self) -> None:
-        """Draw the game grid."""
+        """Draw the game grid with space theme."""
         for x in range(0, const.SCREEN_WIDTH, const.GRID_SIZE):
-            pygame.draw.line(self.surface, const.GRAY, (x, 0), (x, const.SCREEN_HEIGHT))
+            # Lighter grid lines
+            pygame.draw.line(self.surface, const.SPACE_GRID, (x, 0), (x, const.SCREEN_HEIGHT))
         for y in range(0, const.SCREEN_HEIGHT, const.GRID_SIZE):
-            pygame.draw.line(self.surface, const.GRAY, (0, y), (const.SCREEN_WIDTH, y))
-    
+            pygame.draw.line(self.surface, const.SPACE_GRID, (0, y), (const.SCREEN_WIDTH, y))
+            
+    def draw_space_background(self):
+        """Draw the space background with stars."""
+        # Fill with deep space color
+        self.surface.fill(const.SPACE_BG)
+        
+        # Draw stars if we haven't generated them yet
+        if not hasattr(self, '_stars'):
+            import random
+            self._stars = []
+            # Generate 100 stars with random positions and sizes
+            for _ in range(100):
+                x = random.randint(0, const.SCREEN_WIDTH)
+                y = random.randint(0, const.SCREEN_HEIGHT)
+                size = random.randint(1, 2)
+                brightness = random.randint(150, 255)
+                self._stars.append((x, y, size, brightness))
+        
+        # Draw stars
+        for x, y, size, brightness in self._stars:
+            pygame.draw.circle(
+                self.surface, 
+                (brightness, brightness, brightness), 
+                (x, y), 
+                size
+            )
+            
     def draw_obstacles(self, obstacles: List[Tuple[int, int]]) -> None:
         """
         Draw obstacles on the grid.
@@ -189,12 +216,34 @@ class UI:
     
     def draw_debug_info(self, ai_state: Optional[str] = None) -> None:
         """Draw debug information."""
-        if not ai_state:
-            return
+        # Create a semi-transparent background for the debug info
+        debug_bg = pygame.Rect(10, const.SCREEN_HEIGHT - 150, 300, 140)
+        bg_surface = pygame.Surface((debug_bg.width, debug_bg.height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))  # Semi-transparent black
+        self.surface.blit(bg_surface, debug_bg)
+        
+        # Show AI state status
+        y_offset = const.SCREEN_HEIGHT - 145
+        
+        # Display AI state
+        if ai_state:
+            text = f"AI State: {ai_state}"
+            text_surf = self.fonts['normal'].render(text, True, (220, 180, 100))  # Golden color for visibility
+            self.surface.blit(text_surf, (15, y_offset))
+            y_offset += 25
             
-        text = f"AI State: {ai_state}"
-        text_surf = self.fonts['normal'].render(text, True, const.WHITE)
-        self.surface.blit(text_surf, (10, const.SCREEN_HEIGHT - 100))
+        # Display additional debug information
+        debug_lines = [
+            f"FPS: {int(pygame.time.Clock().get_fps())}",
+            f"Debug Mode: ON",
+            f"Round Animation Active: {hasattr(pygame, 'ScenarioManager') and getattr(pygame.ScenarioManager, 'round_transition_active', False)}",
+            f"Asteroid Count: {len([b for b in getattr(pygame, 'blocks', []) if not getattr(b, 'is_destroyed', True)])}"
+        ]
+        
+        for line in debug_lines:
+            text_surf = self.fonts['normal'].render(line, True, (220, 180, 100))
+            self.surface.blit(text_surf, (15, y_offset))
+            y_offset += 20
     
     def draw_instructions(self) -> None:
         """Draw game instructions."""

@@ -21,6 +21,18 @@ class ProjectileManager:
             dy = 1 if target.y > shooter.y else -1
         elif shooter.y == target.y:  # Same row
             dx = 1 if target.x > shooter.x else -1
+        else:
+            # Diagonal direction - determine the closest cardinal direction
+            delta_x = target.x - shooter.x
+            delta_y = target.y - shooter.y
+            
+            # Choose the dominant direction
+            if abs(delta_x) > abs(delta_y):
+                dx = 1 if delta_x > 0 else -1
+                dy = 0
+            else:
+                dx = 0
+                dy = 1 if delta_y > 0 else -1
         
         # Create projectile if we have a valid direction
         if dx != 0 or dy != 0:

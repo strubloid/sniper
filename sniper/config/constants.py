@@ -23,10 +23,19 @@ RED = (200, 50, 50)
 GREEN = (0, 255, 0)
 BLUE = (100, 100, 255, 100)
 
-# Block health colors
-BLOCK_HEALTHY = (80, 80, 80)       # Healthy/undamaged blocks
-BLOCK_DAMAGED = (120, 70, 70)      # Damaged blocks
-BLOCK_CRITICAL = (180, 60, 60)     # Critically damaged blocks
+# Space theme colors
+SPACE_BG = (10, 10, 25)       # Deep space background
+SPACE_GRID = (30, 30, 50)     # Subtle grid lines
+
+# Asteroid colors (replacing block health colors)
+ASTEROID_HEALTHY = (110, 100, 90)    # Healthy asteroid
+ASTEROID_DAMAGED = (130, 90, 70)     # Damaged asteroid
+ASTEROID_CRITICAL = (150, 70, 60)    # Critically damaged asteroid
+
+# Block health colors (renamed but kept for backwards compatibility)
+BLOCK_HEALTHY = ASTEROID_HEALTHY
+BLOCK_DAMAGED = ASTEROID_DAMAGED
+BLOCK_CRITICAL = ASTEROID_CRITICAL
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
