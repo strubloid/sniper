@@ -17,6 +17,7 @@ class UI:
         """Initialize UI renderer with a surface and fonts."""
         self.surface = surface
         self.fonts = fonts
+        self.show_commands = False  # Add toggle for commands visibility
         
     def draw_grid(self) -> None:
         """Draw the game grid."""
@@ -43,45 +44,34 @@ class UI:
             center_y = int((p.y + 0.5) * const.GRID_SIZE)
             pygame.draw.circle(self.surface, p.color, (center_x, center_y), const.PROJECTILE_RADIUS)
     
-    def draw_hud_grid(self, player: Character, enemy: Character) -> None:
+    def draw_hud_grid(self, player: Character, enemy: Character, player_turn: bool = True) -> None:
         """Draw HUD with player and enemy info."""
-        # Player info
+        # Compact Player info at top
         pygame.draw.rect(self.surface, (50, 50, 50), 
-                       pygame.Rect(const.HUD_SPACING, const.HUD_SPACING, 200, 60))
+                       pygame.Rect(const.HUD_SPACING, const.HUD_SPACING, 300, 40))
         
-        # Player health bar
-        health_width = int((player.health / 100) * 180)
-        pygame.draw.rect(self.surface, (200, 50, 50), 
-                       pygame.Rect(const.HUD_SPACING + 10, const.HUD_SPACING + 10, 180, 15))
-        if health_width > 0:
-            pygame.draw.rect(self.surface, (50, 200, 50), 
-                           pygame.Rect(const.HUD_SPACING + 10, const.HUD_SPACING + 10, health_width, 15))
-        
-        # Player text
+        # Player text - more compact display
         text = f"Player: {player.sniper_type.name} ({player.moves_left} moves, {player.shots_left} shots)"
         text_surf = self.fonts['normal'].render(text, True, const.WHITE)
-        self.surface.blit(text_surf, (const.HUD_SPACING + 10, const.HUD_SPACING + 30))
+        self.surface.blit(text_surf, (const.HUD_SPACING + 10, const.HUD_SPACING + 12))
         
-        # Enemy info - right side
+        # Turn indicator in center top
+        text = "Player's Turn" if player_turn else "Enemy's Turn"
+        color = const.GREEN if player_turn else const.RED
+        text_surf = self.fonts['normal'].render(text, True, color)
+        text_rect = text_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.HUD_SPACING + 20))
+        self.surface.blit(text_surf, text_rect)
+        
+        # Enemy info - right side, more compact
         pygame.draw.rect(self.surface, (50, 50, 50), 
                        pygame.Rect(const.SCREEN_WIDTH - 200 - const.HUD_SPACING, 
-                                 const.HUD_SPACING, 200, 60))
+                                 const.HUD_SPACING, 200, 40))
         
-        # Enemy health bar
-        health_width = int((enemy.health / 100) * 180)
-        pygame.draw.rect(self.surface, (200, 50, 50), 
-                       pygame.Rect(const.SCREEN_WIDTH - 190 - const.HUD_SPACING, 
-                                 const.HUD_SPACING + 10, 180, 15))
-        if health_width > 0:
-            pygame.draw.rect(self.surface, (50, 200, 50), 
-                           pygame.Rect(const.SCREEN_WIDTH - 190 - const.HUD_SPACING, 
-                                     const.HUD_SPACING + 10, health_width, 15))
-        
-        # Enemy text
+        # Enemy text - more compact display
         text = f"Enemy: {enemy.sniper_type.name}"
         text_surf = self.fonts['normal'].render(text, True, const.WHITE)
         self.surface.blit(text_surf, (const.SCREEN_WIDTH - 190 - const.HUD_SPACING, 
-                                    const.HUD_SPACING + 30))
+                                    const.HUD_SPACING + 12))
     
     def draw_turn_indicator(self, player_turn: bool) -> None:
         """Draw an indicator showing whose turn it is."""
@@ -122,29 +112,60 @@ class UI:
     
     def draw_end_turn_button(self) -> pygame.Rect:
         """Draw the end turn button."""
-        button = Button(
-            const.SCREEN_WIDTH - const.BUTTON_WIDTH - const.HUD_SPACING,
-            const.SCREEN_HEIGHT - const.BUTTON_HEIGHT - const.HUD_SPACING,
-            const.BUTTON_WIDTH, 
-            const.BUTTON_HEIGHT,
-            "End Turn", 
-            (200, 100, 100)
-        )
-        button.draw(self.surface, self.fonts['normal'])
-        return button.rect
+        # Position in the bottom panel, centered
+        button_rect = pygame.Rect(
+            const.SCREEN_WIDTH // 2 - 80,  # Centered horizontally
+            const.SCREEN_HEIGHT - 50,      # Near bottom of screen
+            160,  # Width
+            40,   # Height
+            )
+        pygame.draw.rect(self.surface, (80, 30, 20), button_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), button_rect, 2)  # Gold border
+        
+        # Text
+        text_surf = self.fonts['normal'].render("End Turn", True, (220, 180, 100))
+        text_rect = text_surf.get_rect(center=button_rect.center)
+        self.surface.blit(text_surf, text_rect)
+        
+        return button_rect
     
     def draw_debug_button(self) -> pygame.Rect:
         """Draw the debug toggle button."""
-        button = Button(
-            const.HUD_SPACING,
-            const.SCREEN_HEIGHT - const.BUTTON_HEIGHT - const.HUD_SPACING,
-            const.BUTTON_WIDTH // 2, 
-            const.BUTTON_HEIGHT,
-            "Debug", 
-            (100, 100, 200)
+        # Position in the header - center left
+        button_rect = pygame.Rect(
+            80,  # Left position
+            5,   # Vertically centered in the header
+            80,  # Narrower width (80px)
+            30   # Height
         )
-        button.draw(self.surface, self.fonts['normal'])
-        return button.rect
+        pygame.draw.rect(self.surface, (80, 30, 20), button_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), button_rect, 2)  # Gold border
+        
+        # Text
+        text_surf = self.fonts['normal'].render("Debug", True, (220, 180, 100))
+        text_rect = text_surf.get_rect(center=button_rect.center)
+        self.surface.blit(text_surf, text_rect)
+        
+        return button_rect
+    
+    def draw_show_commands_button(self) -> pygame.Rect:
+        """Draw the button to toggle command instructions visibility."""
+        # Position in the header - to the right of debug
+        button_rect = pygame.Rect(
+            180,  # To the right of Debug button
+            5,    # Vertically centered in the header
+            100,  # Width
+            30,   # Height
+            )
+        pygame.draw.rect(self.surface, (80, 30, 20), button_rect)  # Brown background
+        pygame.draw.rect(self.surface, (220, 180, 100), button_rect, 2)  # Gold border
+        
+        # Text
+        text_surf = self.fonts['normal'].render("Commands", True, (220, 180, 100))
+        text_rect = text_surf.get_rect(center=button_rect.center)
+        self.surface.blit(text_surf, text_rect)
+        
+        return button_rect
     
     def draw_debug_info(self, ai_state: Optional[str] = None) -> None:
         """Draw debug information."""
@@ -157,11 +178,21 @@ class UI:
     
     def draw_instructions(self) -> None:
         """Draw game instructions."""
+        # Only display instructions if the show_commands toggle is on
+        if not self.show_commands:
+            return
+            
         instructions = [
             "SPACE - Enter shooting mode",
             "Click - Move / Shoot",
             "ESC - Cancel action"
         ]
+        
+        # Draw a semi-transparent background for better readability
+        bg_rect = pygame.Rect(5, const.SCREEN_HEIGHT - 165, 210, 80)
+        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+        bg_surface.fill((0, 0, 0, 180))  # Semi-transparent black
+        self.surface.blit(bg_surface, bg_rect)
         
         y_offset = const.SCREEN_HEIGHT - 160
         for instruction in instructions:
@@ -431,3 +462,150 @@ class UI:
         text2 = self.fonts['normal'].render("Press ESC to cancel", True, const.WHITE)
         text_rect2 = text2.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2))
         self.surface.blit(text2, text_rect2)
+    
+    def draw_game_header(self, player: Character, player_turn: bool = True) -> None:
+        """Draw the game header with turn indicator and player stats."""
+        # Header background - full width bar at top
+        header_rect = pygame.Rect(0, 0, const.SCREEN_WIDTH, 40)
+        pygame.draw.rect(self.surface, (35, 35, 45), header_rect)
+        pygame.draw.rect(self.surface, (220, 180, 100), header_rect, 2)  # Gold border
+        
+        # Turn text
+        current_player = player if player_turn else "Enemy"
+        name = player.sniper_type.name if player_turn else "Enemy"
+        header_text = f"{name}'s Turn"
+        text_surf = self.fonts['big'].render(header_text, True, (220, 180, 100))  # Golden color
+        text_rect = text_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 20))
+        self.surface.blit(text_surf, text_rect)
+        
+        # Show moves and shots remaining
+        if player_turn:
+            stats_text = f"Moves: {player.moves_left} | Shots: {player.shots_left}"
+            stats_surf = self.fonts['normal'].render(stats_text, True, (220, 180, 100))
+            stats_rect = stats_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
+            self.surface.blit(stats_surf, stats_rect)
+    
+    def draw_player_stats_panel(self, player: Character) -> None:
+        """Draw the player stats panel at the bottom of the screen."""
+        # Main panel container (spans bottom of screen)
+        panel_height = 100
+        main_panel = pygame.Rect(0, const.SCREEN_HEIGHT - panel_height, const.SCREEN_WIDTH, panel_height)
+        
+        # Draw the panel with dark background
+        pygame.draw.rect(self.surface, (35, 35, 45), main_panel)
+        pygame.draw.rect(self.surface, (220, 180, 100), main_panel, 2)  # Gold border
+        
+        # LEFT SECTION - Player portrait and stats
+        portrait_size = 80
+        portrait_rect = pygame.Rect(10, const.SCREEN_HEIGHT - panel_height + 10, portrait_size, portrait_size)
+        pygame.draw.rect(self.surface, (60, 60, 80), portrait_rect)
+        pygame.draw.rect(self.surface, (220, 180, 100), portrait_rect, 2)  # Gold border
+        
+        # Display player portrait if available
+        if hasattr(player, 'sniper_type') and hasattr(player.sniper_type, 'sprite') and player.sniper_type.sprite:
+            scaled_sprite = pygame.transform.scale(player.sniper_type.sprite, (portrait_size - 10, portrait_size - 10))
+            self.surface.blit(scaled_sprite, (portrait_rect.x + 5, portrait_rect.y + 5))
+        
+        # Player name just right of the portrait
+        stats_x = portrait_rect.right + 20
+        name_text = self.fonts['big'].render(player.sniper_type.name, True, (220, 180, 100))
+        self.surface.blit(name_text, (stats_x, const.SCREEN_HEIGHT - panel_height + 15))
+        
+        # Health/XP bar
+        health_width = 150
+        health_rect = pygame.Rect(stats_x, const.SCREEN_HEIGHT - panel_height + 50, health_width, 15)
+        pygame.draw.rect(self.surface, (150, 30, 30), health_rect)  # Red background
+        
+        # Calculate actual health width
+        current_health_width = int((player.health / 100) * health_width)
+        if current_health_width > 0:
+            current_health_rect = pygame.Rect(stats_x, const.SCREEN_HEIGHT - panel_height + 50, 
+                                             current_health_width, 15)
+            pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
+        
+        # Health text (72/100)
+        health_text = f"{int(player.health)}/100"
+        health_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
+        self.surface.blit(health_surf, (stats_x, const.SCREEN_HEIGHT - panel_height + 70))
+        
+        # Courage value (118)
+        courage_value = "118"  # Placeholder for future implementation
+        courage_text = self.fonts['big'].render(courage_value, True, (220, 180, 100))
+        self.surface.blit(courage_text, (stats_x + 100, const.SCREEN_HEIGHT - panel_height + 65))
+        
+        # CENTER/RIGHT SECTION - Powers
+        # "Sniper Power" header
+        power_x = const.SCREEN_WIDTH // 2
+        power_header = self.fonts['normal'].render("Sniper Power", True, (220, 180, 100))
+        self.surface.blit(power_header, (power_x, const.SCREEN_HEIGHT - panel_height + 15))
+        
+        # Selected Power 
+        selected_power_text = self.fonts['big'].render("Stealth Shot", True, (220, 180, 100))
+        self.surface.blit(selected_power_text, (power_x, const.SCREEN_HEIGHT - panel_height + 40))
+        
+        # Power icons
+        power_icon_size = 50
+        icon_spacing = 20
+        
+        # Define power positions
+        power_positions = [
+            (power_x + 200, const.SCREEN_HEIGHT - panel_height + 50, "Fireball"),
+            (power_x + 280, const.SCREEN_HEIGHT - panel_height + 50, "Bouncing Shot")
+        ]
+        
+        # Draw power icons
+        for x, y, power_name in power_positions:
+            power_rect = pygame.Rect(x, y, power_icon_size, power_icon_size)
+            pygame.draw.rect(self.surface, (150, 50, 30), power_rect)  # Orange-red for powers
+            pygame.draw.rect(self.surface, (220, 180, 100), power_rect, 2)  # Gold border
+            
+            # Draw power name under icon (smaller font)
+            name_surf = self.fonts['normal'].render(power_name, True, (220, 180, 100))
+            name_rect = name_surf.get_rect(center=(x + power_icon_size // 2, y + power_icon_size + 10))
+            self.surface.blit(name_surf, name_rect)
+    
+    def draw_enemy_info_box(self, enemy: Character) -> None:
+        """Draw the enemy info box above the enemy character."""
+        # Calculate position above the enemy
+        info_width = 150
+        info_height = 80
+        x = enemy.x * const.GRID_SIZE + const.GRID_SIZE // 2 - info_width // 2
+        y = enemy.y * const.GRID_SIZE - info_height - 10  # Position above character
+        
+        # Keep box on screen
+        x = max(5, min(x, const.SCREEN_WIDTH - info_width - 5))
+        y = max(40, min(y, const.SCREEN_HEIGHT - info_height - 5))
+        
+        # Draw container
+        info_rect = pygame.Rect(x, y, info_width, info_height)
+        pygame.draw.rect(self.surface, (35, 35, 45), info_rect)
+        pygame.draw.rect(self.surface, (220, 180, 100), info_rect, 2)  # Gold border
+        
+        # Enemy name
+        name_text = self.fonts['normal'].render("Crimson", True, (220, 180, 100))  # Using a placeholder enemy name
+        name_rect = name_text.get_rect(center=(x + info_width // 2, y + 15))
+        self.surface.blit(name_text, name_rect)
+        
+        # Health bar
+        health_bar_width = 120
+        health_bar_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, y + 30, health_bar_width, 10)
+        pygame.draw.rect(self.surface, (150, 30, 30), health_bar_rect)  # Red background
+        
+        # Calculate actual health
+        current_health_width = int((enemy.health / 100) * health_bar_width)
+        if current_health_width > 0:
+            current_health_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, 
+                                             y + 30, current_health_width, 10)
+            pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
+        
+        # Health text
+        health_text = f"{int(enemy.health)}/60"  # Placeholder health values
+        health_text_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
+        health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 30 + 5))
+        self.surface.blit(health_text_surf, health_text_rect)
+        
+        # Special ability
+        ability_text = "Bouncing Shot"  # Placeholder ability
+        ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
+        ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
+        self.surface.blit(ability_surf, ability_rect)

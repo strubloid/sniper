@@ -344,21 +344,37 @@ class GameManager:
         """Redraw the game state during AI animations."""
         # Fill screens
         self.screen.fill(const.BLACK)
-        self.virtual_screen.fill(const.BLACK)
         
-        # Draw game elements on virtual screen
+        # Fill background with brown color to match the gameplay style
+        self.virtual_screen.fill((110, 70, 40))
+        
+        # Draw basic elements
         self.ui.draw_grid()
         self.ui.draw_obstacles(self.obstacles)
+        
+        # Draw characters
         if self.player:
             self.player.draw(self.virtual_screen)
+        
         if self.enemy:
             self.enemy.draw(self.virtual_screen)
+            # Draw enemy info box above enemy
+            self.ui.draw_enemy_info_box(self.enemy)
+        
+        # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
-        self.ui.draw_hud_grid(self.player, self.enemy)
-        self.ui.draw_turn_indicator(self.player_turn)
+        
+        # Draw new UI elements based on the mockup
+        # 1. Game header with turn and moves/shots
+        self.ui.draw_game_header(self.player, self.player_turn)
+        
+        # 2. Player stats panel at the bottom
+        self.ui.draw_player_stats_panel(self.player)
+        
+        # Draw debug info if enabled
         if self.show_debug:
             self.ui.draw_debug_info(self.ai_state)
-            
+        
         # Scale and display
         scaled_surface = pygame.transform.scale(
             self.virtual_screen, (self.screen_width, self.screen_height)
@@ -382,6 +398,10 @@ class GameManager:
         """Toggle the debug information display."""
         self.show_debug = not self.show_debug
 
+    def toggle_commands(self):
+        """Toggle the command instructions display."""
+        self.ui.show_commands = not self.ui.show_commands
+
     def run(self):
         """Run the main game loop."""
         running = True
@@ -394,11 +414,14 @@ class GameManager:
             # Store button rectangles outside the event loop
             end_turn_button_rect = None
             debug_button_rect = None
+            show_commands_button_rect = None
             
             if self.game_state == const.STATE_PLAY:
                 if self.player_turn:
                     end_turn_button_rect = self.ui.draw_end_turn_button()
                 debug_button_rect = self.ui.draw_debug_button()
+                # Add Show Commands button
+                show_commands_button_rect = self.ui.draw_show_commands_button()
             
             # Process events
             for event in pygame.event.get():
@@ -429,6 +452,11 @@ class GameManager:
                             if debug_button_rect and debug_button_rect.collidepoint(virtual_mouse_pos):
                                 # Debug button clicked
                                 self.toggle_debug()
+                                continue  # Skip other click handling
+                            
+                            if show_commands_button_rect and show_commands_button_rect.collidepoint(virtual_mouse_pos):
+                                # Show Commands button clicked
+                                self.toggle_commands()
                                 continue  # Skip other click handling
                         
                         # Handle other mouse clicks
@@ -487,6 +515,9 @@ class GameManager:
 
     def _render_gameplay(self):
         """Render the gameplay state."""
+        # Fill background
+        self.virtual_screen.fill((110, 70, 40))  # Brown background like in the screenshot
+        
         # Draw basic elements
         self.ui.draw_grid()
         self.ui.draw_obstacles(self.obstacles)
@@ -498,6 +529,8 @@ class GameManager:
         
         if self.enemy:
             self.enemy.draw(self.virtual_screen)
+            # Draw enemy info box above enemy
+            self.ui.draw_enemy_info_box(self.enemy)
             
         # Draw projectiles
         self.ui.draw_projectiles(self.projectiles)
@@ -519,19 +552,26 @@ class GameManager:
         # Process projectile logic
         self.handle_projectile_logic()
         
-        # Draw HUD elements
-        self.ui.draw_hud_grid(self.player, self.enemy)
-        self.ui.draw_instructions()
-        self.ui.draw_turn_indicator(self.player_turn)
+        # Draw new UI elements based on the mockup
+        # 1. Game header with turn and moves/shots
+        self.ui.draw_game_header(self.player, self.player_turn)
         
-        # Draw debug button and info
+        # 2. Player stats panel at the bottom
+        self.ui.draw_player_stats_panel(self.player)
+        
+        # Draw instructions (only if toggled on)
+        self.ui.draw_instructions()
+        
+        # Draw buttons
         debug_button_rect = self.ui.draw_debug_button()
+        show_commands_button_rect = self.ui.draw_show_commands_button()
+        
         if self.show_debug:
             self.ui.draw_debug_info(self.ai_state)
         
         # Draw the End Turn button
         if self.player_turn:
-            self.ui.draw_end_turn_button()
+            end_turn_button_rect = self.ui.draw_end_turn_button()
             
         # Handle AI turn when it's not the player's turn
         if not self.player_turn:
