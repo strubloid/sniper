@@ -614,8 +614,9 @@ class UI:
         pygame.draw.rect(self.surface, (35, 35, 45), info_rect)
         pygame.draw.rect(self.surface, (220, 180, 100), info_rect, 2)  # Gold border
         
-        # Enemy name
-        name_text = self.fonts['normal'].render("Crimson", True, (220, 180, 100))  # Using a placeholder enemy name
+        # Enemy name - use actual enemy name if available
+        name = enemy.sniper_type.name if hasattr(enemy, 'sniper_type') else "Enemy"
+        name_text = self.fonts['normal'].render(name, True, (220, 180, 100))
         name_rect = name_text.get_rect(center=(x + info_width // 2, y + 15))
         self.surface.blit(name_text, name_rect)
         
@@ -625,20 +626,21 @@ class UI:
         pygame.draw.rect(self.surface, (150, 30, 30), health_bar_rect)  # Red background
         
         # Calculate actual health
-        current_health_width = int((enemy.health / 100) * health_bar_width)
+        max_health = 100  # Characters are initialized with 100 health
+        current_health_width = int((enemy.health / max_health) * health_bar_width)
         if current_health_width > 0:
             current_health_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, 
                                              y + 30, current_health_width, 10)
             pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
         
-        # Health text
-        health_text = f"{int(enemy.health)}/60"  # Placeholder health values
+        # Health text - show actual max health instead of hardcoded value
+        health_text = f"{int(enemy.health)}/{max_health}"
         health_text_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
         health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 30 + 5))
         self.surface.blit(health_text_surf, health_text_rect)
         
-        # Special ability
-        ability_text = "Bouncing Shot"  # Placeholder ability
+        # Special ability - use actual ability if available
+        ability_text = enemy.sniper_type.special_power if hasattr(enemy.sniper_type, 'special_power') else "Bouncing Shot"
         ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
         ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
         self.surface.blit(ability_surf, ability_rect)
