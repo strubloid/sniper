@@ -695,51 +695,111 @@ class UI:
         return courage_button_rect
     
     def draw_enemy_info_box(self, enemy: Character) -> None:
-        """Draw the enemy info box above the enemy character."""
+        """Draw a compact, rounded enemy info box above the enemy character."""
         # Calculate position above the enemy
-        info_width = 150
-        info_height = 80
-        x = enemy.x * const.GRID_SIZE + const.GRID_SIZE // 2 - info_width // 2
-        y = enemy.y * const.GRID_SIZE - info_height - 10  # Position above character
+        info_width = 120  # Reduced width for more compact display
+        info_height = 70  # Increased height slightly to fit courage bar
+        margin = 4  # Adding a 4px margin as requested
         
-        # Keep box on screen
-        x = max(5, min(x, const.SCREEN_WIDTH - info_width - 5))
-        y = max(40, min(y, const.SCREEN_HEIGHT - info_height - 5))
+        # Convert grid coordinates to pixel coordinates
+        enemy_center_x = enemy.x * const.GRID_SIZE + const.GRID_SIZE // 2
+        enemy_center_y = enemy.y * const.GRID_SIZE + const.GRID_SIZE // 2
         
-        # Draw container
-        info_rect = pygame.Rect(x, y, info_width, info_height)
-        pygame.draw.rect(self.surface, (35, 35, 45), info_rect)
-        pygame.draw.rect(self.surface, (220, 180, 100), info_rect, 2)  # Gold border
+        # Position box above enemy with appropriate offset, without the connecting line
+        x = enemy_center_x - info_width // 2
+        y = enemy_center_y - info_height - 20  # More space above character to remove the need for connecting line
         
-        # Enemy name - use actual enemy name if available
+        # Keep box on screen with proper margins
+        x = max(10, min(x, const.SCREEN_WIDTH - info_width - 10))
+        y = max(45, min(y, const.SCREEN_HEIGHT - info_height - 10))
+        
+        # Create a semi-transparent background with rounded corners and margin
+        info_bg = pygame.Surface((info_width + margin*2, info_height + margin*2), pygame.SRCALPHA)
+        
+        # First, draw a rounded rectangle on this surface
+        radius = 10  # Corner radius
+        rect = pygame.Rect(margin, margin, info_width, info_height)
+        
+        # Draw the semi-transparent background with rounded corners
+        pygame.draw.rect(info_bg, (10, 10, 20, 210), rect, border_radius=radius)
+        
+        # Draw a gold border with rounded corners
+        pygame.draw.rect(info_bg, (220, 180, 100), rect, 2, border_radius=radius)
+        
+        # Blit the background to the main surface
+        self.surface.blit(info_bg, (x - margin, y - margin))
+        
+        # Use a smaller font for more compact display
+        small_font = pygame.font.SysFont(None, 20)  # Smaller font size
+        
+        # Enemy name - use actual enemy name if available - now with WHITE color
         name = enemy.sniper_type.name if hasattr(enemy, 'sniper_type') else "Enemy"
-        name_text = self.fonts['normal'].render(name, True, (220, 180, 100))
-        name_rect = name_text.get_rect(center=(x + info_width // 2, y + 15))
+        name_text = small_font.render(name, True, (255, 255, 255))  # Changed to WHITE
+        name_rect = name_text.get_rect(center=(x + info_width // 2, y + 12))
         self.surface.blit(name_text, name_rect)
         
-        # Health bar
-        health_bar_width = 120
-        health_bar_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, y + 30, health_bar_width, 10)
+        # Health bar - smaller and more compact
+        health_bar_width = 90  # Reduced width
+        health_bar_height = 12  # Slightly reduced height for more compact display
+        health_bar_rect = pygame.Rect(
+            x + (info_width - health_bar_width) // 2, 
+            y + 25,  # Adjusted position
+            health_bar_width, 
+            health_bar_height
+        )
         pygame.draw.rect(self.surface, (150, 30, 30), health_bar_rect)  # Red background
         
         # Calculate actual health
         max_health = 100  # Characters are initialized with 100 health
         current_health_width = int((enemy.health / max_health) * health_bar_width)
         if current_health_width > 0:
-            current_health_rect = pygame.Rect(x + (info_width - health_bar_width) // 2, 
-                                             y + 30, current_health_width, 10)
+            current_health_rect = pygame.Rect(
+                x + (info_width - health_bar_width) // 2, 
+                y + 25,
+                current_health_width, 
+                health_bar_height
+            )
             pygame.draw.rect(self.surface, (200, 50, 50), current_health_rect)
         
-        # Health text - show actual max health instead of hardcoded value
+        # Health text - smaller font and more compact format
+        # Now displayed ON TOP of the health bar with WHITE text
         health_text = f"{int(enemy.health)}/{max_health}"
-        health_text_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
-        health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 30 + 5))
+        health_text_surf = small_font.render(health_text, True, (255, 255, 255))  # Changed to WHITE
+        health_text_rect = health_text_surf.get_rect(center=(x + info_width // 2, y + 25 + health_bar_height//2))
         self.surface.blit(health_text_surf, health_text_rect)
         
-        # Special ability - use actual ability if available
+        # Add courage bar - compact format below health bar
+        courage_bar_width = 90  # Same width as health bar
+        courage_bar_height = 12  # Same height as health bar
+        courage_bar_rect = pygame.Rect(
+            x + (info_width - courage_bar_width) // 2, 
+            y + 40,  # Position below health bar
+            courage_bar_width, 
+            courage_bar_height
+        )
+        pygame.draw.rect(self.surface, (50, 50, 80), courage_bar_rect)  # Dark background
+        
+        # Draw current courage level
+        current_courage_width = int((enemy.courage / const.COURAGE_MAX) * courage_bar_width)
+        if current_courage_width > 0:
+            current_courage_rect = pygame.Rect(
+                x + (info_width - courage_bar_width) // 2, 
+                y + 40,
+                current_courage_width, 
+                courage_bar_height
+            )
+            pygame.draw.rect(self.surface, (100, 100, 220), current_courage_rect)  # Blue courage bar
+        
+        # Courage text - displayed ON TOP of the courage bar with WHITE text
+        courage_text = f"{int(enemy.courage)}/{const.COURAGE_MAX}"
+        courage_text_surf = small_font.render(courage_text, True, (255, 255, 255))
+        courage_text_rect = courage_text_surf.get_rect(center=(x + info_width // 2, y + 40 + courage_bar_height//2))
+        self.surface.blit(courage_text_surf, courage_text_rect)
+        
+        # Special ability - smaller font with WHITE text - moved down to accommodate courage bar
         ability_text = enemy.sniper_type.special_power if hasattr(enemy.sniper_type, 'special_power') else "Bouncing Shot"
-        ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
-        ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
+        ability_surf = small_font.render(ability_text, True, (255, 255, 255))
+        ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 58))
         self.surface.blit(ability_surf, ability_rect)
         
     def draw_countdown(self, seconds: int) -> None:

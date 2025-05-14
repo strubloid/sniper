@@ -157,9 +157,24 @@ class GameManager:
             # Start the player's turn when the transition is complete
             self.player_turn = True
             self.player.start_turn()
+            
+            # Add courage based on proximity once at the start of the round
+            self._update_courage_for_new_round()
+            
             return True
             
         return False
+        
+    def _update_courage_for_new_round(self):
+        """Update courage based on proximity at the start of each new round."""
+        if self.player and self.enemy:
+            distance = abs(self.player.x - self.enemy.x) + abs(self.player.y - self.enemy.y)
+            if distance <= const.COURAGE_PROXIMITY_RANGE:
+                # Award courage points based on proximity
+                courage_gain = const.COURAGE_PROXIMITY_GAIN
+                self.player.add_courage(courage_gain)
+                self.enemy.add_courage(courage_gain)
+                debug_print(f"Round {self.round_number}: Added {courage_gain} courage points based on proximity")
 
     def handle_mouse_click(self, pos):
         """Handle mouse click events based on current game state."""
@@ -752,12 +767,6 @@ class GameManager:
                     debug_print(f"Post-enemy delay complete. Starting round transition to Round {self.round_number}")
             else:
                 self.enemy_turn()
-                
-        # Update courage from proximity - check once per second
-        if self.player and self.enemy:
-            self.player.check_proximity_courage(self.enemy)
-            self.enemy.check_proximity_courage(self.player)
-
 
 def main():
     """Main entry point function."""

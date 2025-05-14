@@ -42,12 +42,12 @@ ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 secon
 ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
 ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
 ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
-POST_ENEMY_DELAY = 3000            # Delay after enemy turn before showing round transition (3 seconds)
+POST_ENEMY_DELAY = 2000            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
-OBSTACLE_COUNT = 20
+OBSTACLE_COUNT = 100
 BLOCK_MAX_HEALTH = 3              # Maximum health for blocks/obstacles
 BLOCK_DAMAGE_PER_HIT = 1          # Damage per projectile hit
 SCENARIO_POPULATION = 20          # Default population count for obstacles in a scenario
@@ -81,18 +81,18 @@ AI_OPTIMAL_DIST_MIN = 2       # Minimum preferred distance from player
 AI_OPTIMAL_DIST_MAX = 3       # Maximum preferred distance from player
 
 # Experience System Constants
-EXPERIENCE_HIT_ROCK = 5          # Experience for hitting a rock
-EXPERIENCE_DAMAGE_PLAYER = 15    # Experience for damaging a player
+EXPERIENCE_HIT_ROCK = 15          # Experience for hitting a rock
+EXPERIENCE_DAMAGE_PLAYER = 25    # Experience for damaging a player
 EXPERIENCE_KILL_PLAYER = 50      # Experience for killing a player
-EXPERIENCE_DESTROY_ELEMENT = 3   # Experience for destroying environmental elements
+EXPERIENCE_DESTROY_ELEMENT = 15   # Experience for destroying environmental elements
 
 # Courage System Constants
 COURAGE_MAX = 100                # Maximum courage value
-COURAGE_PROXIMITY_GAIN = 1       # Courage gained per second when near opponent
-COURAGE_PROXIMITY_RANGE = 5      # Grid cells radius for proximity detection
-COURAGE_HIT_ENVIRONMENT = 2      # Courage for destroying environment elements
-COURAGE_KILL_PLAYER = 25         # Courage for killing a player
-COURAGE_BUTTON_COST = 20         # Courage points consumed for extra shot
+COURAGE_PROXIMITY_GAIN = 15       # Courage gained per second when near opponent
+COURAGE_PROXIMITY_RANGE = 8      # Grid cells radius for proximity detection
+COURAGE_HIT_ENVIRONMENT = 10      # Courage for destroying environment elements
+COURAGE_KILL_PLAYER = 50         # Courage for killing a player
+COURAGE_BUTTON_COST = 25         # Courage points consumed for extra shot
 
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
