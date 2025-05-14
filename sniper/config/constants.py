@@ -42,7 +42,7 @@ ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 secon
 ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
 ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
 ROUND_TRANSITION_COUNTDOWN = 3     # Countdown value in seconds
-POST_ENEMY_DELAY = 1500            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
+POST_ENEMY_DELAY = 1000            # Delay after enemy turn before showing round transition (reduced from 3 to 2 seconds)
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
@@ -56,9 +56,9 @@ BLOCK_FADE_DURATION = 500         # Duration for blocks fading out (ms)
 BLOCK_APPEAR_DURATION = 500       # Duration for blocks appearing (ms)
 ROUND_TRANSITION_DELAY = 1000     # Delay between rounds (ms)
 AI_AIMING_DELAY = 1000
-AI_SHOOTING_DELAY = 1000
+AI_SHOOTING_DELAY = 500
 AI_END_TURN_DELAY = 500
-AI_TURN_DELAY = 1000  # Delay before AI takes its turn (milliseconds)
+AI_TURN_DELAY = 500  # Delay before AI takes its turn (milliseconds)
 
 # AI Animation and Timing Constants
 AI_THINKING_DELAY = 300
@@ -131,6 +131,10 @@ PROJECTILE_RADIUS = 10
 
 # Debugging control
 DEBUG = 1
+
+# Bush settings
+BUSH_GLOW_MARGIN = 2  # Margin for bush energy field in pixels
+BUSH_HEALTH_DISPLAY = True  # Whether to show bush health
 
 def debug_print(*args, **kwargs):
     """Print debug messages if DEBUG is enabled."""

@@ -198,13 +198,21 @@ class ScenarioManager:
         # Load tree image
         try:
             self.tree_image = pygame.image.load("assets/tree.png").convert_alpha()
-            # Scale it to fit in a grid cell (slightly smaller than grid size)
-            scale_size = int(const.GRID_SIZE * 0.9)
+            # Scale it to fit in a grid cell with slight overflow
+            scale_size = int(const.GRID_SIZE * 1.1)  # 110% of grid size for slight overflow
             self.tree_image = pygame.transform.scale(self.tree_image, (scale_size, scale_size))
             self.tree_loaded = True
         except (pygame.error, FileNotFoundError):
-            print("Warning: Could not load tree image, using fallback.")
-            self.tree_loaded = False
+            print("Warning: Could not load tree.png, trying tree_no_bg.png")
+            try:
+                self.tree_image = pygame.image.load("assets/tree_no_bg.png").convert_alpha()
+                # Scale it to fit in a grid cell with slight overflow
+                scale_size = int(const.GRID_SIZE * 1.1)  # 110% of grid size for slight overflow
+                self.tree_image = pygame.transform.scale(self.tree_image, (scale_size, scale_size))
+                self.tree_loaded = True
+            except (pygame.error, FileNotFoundError):
+                print("Warning: Could not load tree images, using fallback.")
+                self.tree_loaded = False
     
     def add_bush(self, x: int, y: int, owner: str) -> bool:
         """
@@ -412,29 +420,60 @@ class ScenarioManager:
                 # Draw tree image for bushes if available, otherwise use the space-themed bush with glow effect
                 x, y = block.position
                 if hasattr(self, 'tree_loaded') and self.tree_loaded and self.tree_image:
-                    # Calculate position to center the tree in the grid cell
+                    # Calculate position to center the tree in the grid cell with slight overflow
                     tree_pos = (x * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_width()) // 2,
                                 y * const.GRID_SIZE + (const.GRID_SIZE - self.tree_image.get_height()) // 2)
                     
-                    # Add a slight glow effect based on owner
+                    # Add a slight glow effect based on owner with smaller margin
                     tint = (80, 200, 255) if block.owner == 'player' else (200, 100, 255)
-                    # Create glow surface
-                    glow_size = const.GRID_SIZE + 10
+                    
+                    # Use the configurable margin
+                    margin = const.BUSH_GLOW_MARGIN
+                    glow_size = const.GRID_SIZE + (margin * 2)
                     glow_surface = pygame.Surface((glow_size, glow_size), pygame.SRCALPHA)
                     
                     # Draw glow circles
                     center = (glow_size // 2, glow_size // 2)
                     for i in range(3, 0, -1):
-                        glow_radius = const.GRID_SIZE // 2 + i * 2
+                        glow_radius = const.GRID_SIZE // 2 + i
                         glow_color = (*tint, 30)
                         pygame.draw.circle(glow_surface, glow_color, center, glow_radius)
                     
-                    # Draw the glow around the tree
-                    glow_pos = (x * const.GRID_SIZE - 5, y * const.GRID_SIZE - 5)
+                    # Draw the glow around the tree with the specified margin
+                    glow_pos = (x * const.GRID_SIZE - margin, y * const.GRID_SIZE - margin)
                     surface.blit(glow_surface, glow_pos)
                     
                     # Draw the tree image
                     surface.blit(self.tree_image, tree_pos)
+                    
+                    # Display bush health if enabled
+                    if const.BUSH_HEALTH_DISPLAY:
+                        # Create font if we don't have one
+                        if not hasattr(self, 'font'):
+                            self.font = pygame.font.SysFont(None, 20)
+                        
+                        # Render health text
+                        health_text = str(block.health)
+                        text_color = (255, 255, 255)  # White text
+                        health_surface = self.font.render(health_text, True, text_color)
+                        
+                        # Position the health text at the top center of the bush
+                        text_pos = (
+                            x * const.GRID_SIZE + (const.GRID_SIZE - health_surface.get_width()) // 2,
+                            y * const.GRID_SIZE - 2  # Position slightly above the top of the bush
+                        )
+                        
+                        # Draw a small dark background for better visibility
+                        bg_rect = health_surface.get_rect()
+                        bg_rect.topleft = text_pos
+                        bg_rect = bg_rect.inflate(4, 2)  # Make the background slightly larger
+                        bg_color = (0, 0, 0, 180)  # Semi-transparent black
+                        bg_surface = pygame.Surface((bg_rect.width, bg_rect.height), pygame.SRCALPHA)
+                        bg_surface.fill(bg_color)
+                        surface.blit(bg_surface, bg_rect.topleft)
+                        
+                        # Draw the health text
+                        surface.blit(health_surface, text_pos)
                 else:
                     # Fallback to original circular bush
                     center = (x * const.GRID_SIZE + const.GRID_SIZE//2, y * const.GRID_SIZE + const.GRID_SIZE//2)
@@ -447,6 +486,18 @@ class ScenarioManager:
                         pygame.draw.circle(surface, glow_color, center, glow_radius)
                     # Solid core
                     pygame.draw.circle(surface, tint, center, const.GRID_SIZE//2 - 5)
+                    
+                    # Display bush health for fallback rendering too
+                    if const.BUSH_HEALTH_DISPLAY:
+                        if not hasattr(self, 'font'):
+                            self.font = pygame.font.SysFont(None, 20)
+                        health_text = str(block.health)
+                        text_surface = self.font.render(health_text, True, (255, 255, 255))
+                        text_pos = (
+                            center[0] - text_surface.get_width() // 2,
+                            y * const.GRID_SIZE - 2
+                        )
+                        surface.blit(text_surface, text_pos)
                 continue
             # Skip destroyed blocks unless fading
             if block.is_destroyed and not block.is_fading:
