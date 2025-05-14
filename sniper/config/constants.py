@@ -10,9 +10,16 @@ import pygame
 SCREEN_WIDTH = 960
 SCREEN_HEIGHT = 720
 GRID_SIZE = 32
-GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE
-GRID_HEIGHT = SCREEN_HEIGHT // GRID_SIZE
+# Visual grid dimensions (what's displayed on screen)
+VISIBLE_GRID_WIDTH = SCREEN_WIDTH // GRID_SIZE  
+VISIBLE_GRID_HEIGHT = (SCREEN_HEIGHT - 110) // GRID_SIZE  # Accounting for top HUD space
+# Actual game world dimensions (10x bigger)
+GRID_WIDTH = VISIBLE_GRID_WIDTH * 10
+GRID_HEIGHT = VISIBLE_GRID_HEIGHT * 10
 FPS = 60
+
+# Camera settings
+CAMERA_MOVE_SPEED = 15  # Camera movement speed
 
 # Colors
 WHITE = (255, 255, 255)
@@ -22,11 +29,17 @@ GRAY = (80, 80, 80)
 RED = (200, 50, 50)
 GREEN = (0, 255, 0)
 BLUE = (100, 100, 255, 100)
+ORANGE = (255, 140, 0)  # Adding the missing ORANGE color
+BG_COLOR = (30, 30, 40)  # Dark blue-gray background color
+GRID_COLOR = (50, 50, 50)  # Dark gray color for grid lines
+OBSTACLE_COLOR = (120, 80, 40)  # Brown color for obstacles
+ARROW_COLOR = (255, 200, 0)  # Bright yellow color for direction arrows
 
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20
-OBSTACLE_COUNT = 20
+PROJECTILE_SPEED = 8  # Added missing projectile speed constant
+OBSTACLE_COUNT = 100  # Increased from 60 to 100 for an even fuller map
 ANIMATION_DELAY = 300
 AI_AIMING_DELAY = 500
 AI_SHOOTING_DELAY = 500
@@ -63,6 +76,11 @@ STATE_SELECT = "select"
 STATE_PLAY = "play"
 STATE_SCOREBOARD = "scoreboard"
 STATE_GAME_OVER = "game_over"
+
+# Game modes
+MODE_AI = "ai"          # Player vs AI
+MODE_PVP = "pvp"        # Player vs Player (local)
+MODE_NETWORK = "net"    # Player vs Player (network)
 
 # AI states
 AI_STATE_THINKING = "THINKING"
