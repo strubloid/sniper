@@ -37,6 +37,11 @@ BLOCK_HEALTHY = ASTEROID_HEALTHY
 BLOCK_DAMAGED = ASTEROID_DAMAGED
 BLOCK_CRITICAL = ASTEROID_CRITICAL
 
+# Round transition settings
+ROUND_TRANSITION_DURATION = 3000   # Total duration of round transition (3 seconds)
+ROUND_TRANSITION_TEXT_COLOR = (255, 255, 255)  # White text for countdown
+ROUND_TRANSITION_BG_COLOR = (0, 0, 0, 180)    # Semi-transparent black background
+
 # Game settings
 HEALTH_DAMAGE_PER_MOVE = 5
 PROJECTILE_DAMAGE = 20

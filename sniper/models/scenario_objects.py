@@ -280,15 +280,36 @@ class ScenarioManager:
                 # Reset block list
                 self.blocks = []
                 
+                # Make sure positions are integers
+                player_pos_int = (int(player_pos[0]), int(player_pos[1]))
+                enemy_pos_int = (int(enemy_pos[0]), int(enemy_pos[1]))
+                
+                # Create buffer zones around characters to prevent blocks from being too close
+                protected_positions = [
+                    player_pos_int,
+                    enemy_pos_int,
+                    # Add adjacent positions to prevent rocks too close to characters
+                    (player_pos_int[0] + 1, player_pos_int[1]),
+                    (player_pos_int[0] - 1, player_pos_int[1]),
+                    (player_pos_int[0], player_pos_int[1] + 1),
+                    (player_pos_int[0], player_pos_int[1] - 1),
+                    (enemy_pos_int[0] + 1, enemy_pos_int[1]),
+                    (enemy_pos_int[0] - 1, enemy_pos_int[1]),
+                    (enemy_pos_int[0], enemy_pos_int[1] + 1),
+                    (enemy_pos_int[0], enemy_pos_int[1] - 1),
+                ]
+                
+                print(f"Protected positions for block generation: {protected_positions}")
+                
                 # Re-add healthy blocks with new positions
                 attempts = 0
-                while len(self.blocks) < len(healthy_blocks) and attempts < len(healthy_blocks) * 3:
+                while len(self.blocks) < len(healthy_blocks) and attempts < len(healthy_blocks) * 5:  # Increased attempts
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
                     
-                    # Don't place blocks on players or existing blocks
-                    if ((x, y) == player_pos or (x, y) == enemy_pos or 
+                    # Don't place blocks on players, near players, or on existing blocks
+                    if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
                     
@@ -301,13 +322,13 @@ class ScenarioManager:
                         self.blocks.append(block)
                 
                 # Add destroyed blocks back at full health to maintain population
-                while len(self.blocks) < self.population and attempts < self.population * 3:
+                while len(self.blocks) < self.population and attempts < self.population * 5:  # Increased attempts
                     attempts += 1
                     x = random.randint(0, const.GRID_WIDTH - 1)
                     y = random.randint(0, const.GRID_HEIGHT - 1)
                     
-                    # Don't place blocks on players or existing blocks
-                    if ((x, y) == player_pos or (x, y) == enemy_pos or 
+                    # Don't place blocks on players, near players, or on existing blocks
+                    if ((x, y) in protected_positions or
                         any(block.position == (x, y) for block in self.blocks)):
                         continue
                     

@@ -711,3 +711,22 @@ class UI:
         ability_surf = self.fonts['normal'].render(ability_text, True, (220, 180, 100))
         ability_rect = ability_surf.get_rect(center=(x + info_width // 2, y + 60))
         self.surface.blit(ability_surf, ability_rect)
+        
+    def draw_countdown(self, seconds: int) -> None:
+        """Draw a round transition countdown in the center of the screen."""
+        # Create a semi-transparent overlay
+        overlay = pygame.Surface((const.SCREEN_WIDTH, const.SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill(const.ROUND_TRANSITION_BG_COLOR)
+        self.surface.blit(overlay, (0, 0))
+        
+        # Draw the round number
+        round_text = f"Round {seconds}"
+        round_surf = self.fonts['huge'].render(round_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
+        round_rect = round_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2))
+        self.surface.blit(round_surf, round_rect)
+        
+        # Draw a smaller instruction text below
+        instruction_text = "Get ready..."
+        instruction_surf = self.fonts['big'].render(instruction_text, True, const.ROUND_TRANSITION_TEXT_COLOR)
+        instruction_rect = instruction_surf.get_rect(center=(const.SCREEN_WIDTH // 2, const.SCREEN_HEIGHT // 2 + 70))
+        self.surface.blit(instruction_surf, instruction_rect)

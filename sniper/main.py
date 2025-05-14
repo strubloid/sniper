@@ -43,7 +43,8 @@ class GameManager:
         # Set up fonts
         self.fonts = {
             'normal': pygame.font.SysFont(None, 24),
-            'big': pygame.font.SysFont(None, 48)
+            'big': pygame.font.SysFont(None, 48),
+            'huge': pygame.font.SysFont(None, 96)  # For round transition countdown
         }
         
         # Create UI manager
@@ -70,6 +71,10 @@ class GameManager:
         # AI turn handling
         self.ai_turn_started = False
         self.ai_turn_time = 0
+        
+        # Round transition countdown
+        self.round_transition_start_time = 0
+        self.show_countdown = False
         
         # Load sniper types
         self.sniper_types = self._load_sniper_types()
@@ -115,6 +120,8 @@ class GameManager:
         if not self.in_round_transition:
             self.in_round_transition = True
             self.round_number += 1
+            self.round_transition_start_time = pygame.time.get_ticks()
+            self.show_countdown = True
             debug_print(f"Starting Round {self.round_number}")
             
             # Start the block fade out/in transition
@@ -133,6 +140,7 @@ class GameManager:
         
         if transition_complete:
             self.in_round_transition = False
+            self.show_countdown = False
             debug_print(f"Round {self.round_number} started")
             
             # Start the player's turn when the transition is complete
@@ -673,6 +681,10 @@ class GameManager:
         # Update round transition animation if active
         if self.in_round_transition:
             transition_complete = self.update_round_transition()
+            if self.show_countdown:
+                elapsed_time = pygame.time.get_ticks() - self.round_transition_start_time
+                countdown_value = max(0, const.ROUND_TRANSITION_COUNTDOWN - elapsed_time // 1000)
+                self.ui.draw_countdown(countdown_value)
             
         # Handle AI turn when it's not the player's turn and we're not in round transition
         elif not self.player_turn and not self.in_round_transition:
