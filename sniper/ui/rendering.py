@@ -554,8 +554,8 @@ class UI:
             stats_rect = stats_surf.get_rect(center=(const.SCREEN_WIDTH // 2, 50))
             self.surface.blit(stats_surf, stats_rect)
     
-    def draw_player_stats_panel(self, player: Character) -> None:
-        """Draw the player stats panel at the bottom of the screen."""
+    def draw_player_stats_panel(self, player: Character) -> pygame.Rect:
+        """Draw the player stats panel at the bottom of the screen and return the courage button rect."""
         # Main panel container (spans bottom of screen)
         panel_height = 100
         main_panel = pygame.Rect(0, const.SCREEN_HEIGHT - panel_height, const.SCREEN_WIDTH, panel_height)
@@ -597,19 +597,78 @@ class UI:
         health_surf = self.fonts['normal'].render(health_text, True, (220, 180, 100))
         self.surface.blit(health_surf, (stats_x, const.SCREEN_HEIGHT - panel_height + 70))
         
-        # Courage value (118) - large number to the right of health
-        courage_value = "118"  # Placeholder for future implementation
-        courage_text = self.fonts['big'].render(courage_value, True, (220, 180, 100))
-        self.surface.blit(courage_text, (stats_x + 100, const.SCREEN_HEIGHT - panel_height + 65))
+        # COURAGE SECTION
+        courage_x = stats_x + 180
+        
+        # Draw "Courage:" label
+        courage_label = self.fonts['normal'].render("Courage:", True, (220, 180, 100))
+        self.surface.blit(courage_label, (courage_x, const.SCREEN_HEIGHT - panel_height + 30))
+        
+        # Draw courage bar
+        courage_width = 100
+        courage_height = 15
+        courage_bar_y = const.SCREEN_HEIGHT - panel_height + 50
+        courage_bar_rect = pygame.Rect(courage_x, courage_bar_y, courage_width, courage_height)
+        pygame.draw.rect(self.surface, (50, 50, 80), courage_bar_rect)  # Dark background
+        
+        # Draw current courage level
+        current_courage_width = int((player.courage / const.COURAGE_MAX) * courage_width)
+        if current_courage_width > 0:
+            current_courage_rect = pygame.Rect(courage_x, courage_bar_y, current_courage_width, courage_height)
+            pygame.draw.rect(self.surface, (100, 100, 220), current_courage_rect)  # Blue courage bar
+        
+        # Display courage value
+        courage_value = str(int(player.courage))
+        courage_text = self.fonts['normal'].render(f"{courage_value}/{const.COURAGE_MAX}", True, (220, 180, 100))
+        self.surface.blit(courage_text, (courage_x, courage_bar_y + courage_height + 5))
+        
+        # Courage Button - circular button to the right of courage bar
+        courage_button_size = 30
+        courage_button_x = courage_x + courage_width + 20
+        courage_button_y = courage_bar_y + (courage_height // 2) - (courage_button_size // 2)
+        courage_button_rect = pygame.Rect(
+            courage_button_x, 
+            courage_button_y, 
+            courage_button_size, 
+            courage_button_size
+        )
+        
+        # Draw button with different appearance based on whether it's usable
+        button_enabled = player.courage >= const.COURAGE_BUTTON_COST
+        button_color = (100, 100, 220) if button_enabled else (60, 60, 80)  # Blue if enabled, grey if disabled
+        pygame.draw.circle(
+            self.surface, 
+            button_color, 
+            (courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2)), 
+            courage_button_size // 2
+        )
+        pygame.draw.circle(
+            self.surface, 
+            (220, 180, 100), 
+            (courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2)), 
+            courage_button_size // 2,
+            2  # 2px width border
+        )
+        
+        # Draw "+" in the button
+        plus_text = self.fonts['normal'].render("+", True, (220, 180, 100) if button_enabled else (120, 120, 120))
+        plus_rect = plus_text.get_rect(
+            center=(courage_button_x + (courage_button_size // 2), courage_button_y + (courage_button_size // 2))
+        )
+        self.surface.blit(plus_text, plus_rect)
+        
+        # Draw cost tooltip near button
+        cost_text = self.fonts['normal'].render(f"{const.COURAGE_BUTTON_COST}", True, (220, 180, 100) if button_enabled else (120, 120, 120))
+        self.surface.blit(cost_text, (courage_button_x + courage_button_size + 5, courage_button_y + 5))
         
         # CENTER SECTION - Powers - moved to better match screenshot
-        # "Sniper Power" header - positioned to the right of portrait/stats
-        power_x = stats_x + 220
+        # "Sniper Power" header - positioned to the right of courage section
+        power_x = courage_x + 150
         power_header = self.fonts['normal'].render("Sniper Power", True, (220, 180, 100))
         self.surface.blit(power_header, (power_x, const.SCREEN_HEIGHT - panel_height + 15))
         
         # Selected Power - positioned below header
-        selected_power_text = self.fonts['big'].render("Stealth Shot", True, (220, 180, 100))
+        selected_power_text = self.fonts['big'].render(player.sniper_type.special_power, True, (220, 180, 100))
         self.surface.blit(selected_power_text, (power_x, const.SCREEN_HEIGHT - panel_height + 40))
         
         # RIGHT SECTION - Power buttons and End Turn
@@ -623,38 +682,6 @@ class UI:
             button_height
         )
         
-        # Power button size
-        power_icon_size = 40
-        
-        # Power 2 button - 40px from End Turn button
-        power2_rect = pygame.Rect(
-            end_turn_rect.left - power_icon_size - 40,  # 40px left of End Turn
-            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
-            power_icon_size, 
-            power_icon_size
-        )
-        pygame.draw.rect(self.surface, (80, 30, 20), power2_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), power2_rect, 2)  # Gold border
-        
-        # Power 1 button - 40px from Power 2 button
-        power1_rect = pygame.Rect(
-            power2_rect.left - power_icon_size - 40,  # 40px left of Power 2
-            const.SCREEN_HEIGHT - panel_height + 50 - power_icon_size//2,  # Vertically centered
-            power_icon_size, 
-            power_icon_size
-        )
-        pygame.draw.rect(self.surface, (80, 30, 20), power1_rect)  # Brown background
-        pygame.draw.rect(self.surface, (220, 180, 100), power1_rect, 2)  # Gold border
-        
-        # Power labels
-        power1_text = self.fonts['normal'].render("Power 1", True, (220, 180, 100))
-        power1_text_rect = power1_text.get_rect(center=(power1_rect.centerx, power1_rect.bottom + 15))
-        self.surface.blit(power1_text, power1_text_rect)
-        
-        power2_text = self.fonts['normal'].render("Power 2", True, (220, 180, 100))
-        power2_text_rect = power2_text.get_rect(center=(power2_rect.centerx, power2_rect.bottom + 15))
-        self.surface.blit(power2_text, power2_text_rect)
-        
         # Draw the End Turn button
         pygame.draw.rect(self.surface, (80, 30, 20), end_turn_rect)  # Brown background
         pygame.draw.rect(self.surface, (220, 180, 100), end_turn_rect, 2)  # Gold border
@@ -663,6 +690,9 @@ class UI:
         end_turn_text = self.fonts['normal'].render("End Turn", True, (220, 180, 100))
         end_turn_text_rect = end_turn_text.get_rect(center=end_turn_rect.center)
         self.surface.blit(end_turn_text, end_turn_text_rect)
+        
+        # Return the courage button rect so we can detect clicks on it
+        return courage_button_rect
     
     def draw_enemy_info_box(self, enemy: Character) -> None:
         """Draw the enemy info box above the enemy character."""

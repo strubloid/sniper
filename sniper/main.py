@@ -275,7 +275,12 @@ class GameManager:
                     if self.player.health <= 0:
                         self.player.health = 0  # Clamp health to zero
                         self._end_game("AI")
-    
+        elif self.courage_button_rect and self.courage_button_rect.collidepoint(pos):
+            # Handle courage button click - grant extra shot if player has enough courage
+            if self.player.use_courage_ability():
+                debug_print(f"Courage ability used: +1 shot added (current shots: {self.player.shots_left})")
+                # Could add visual effect here to show the ability activation
+
     def _handle_shooting(self, mouse_pos):
         """Handle shooting based on mouse direction."""
         player_center = (
@@ -316,24 +321,62 @@ class GameManager:
                 self.projectiles.remove(p)
             # Check for collision with obstacle
             elif self.scenario and self.scenario.handle_projectile_collision(int(p.x), int(p.y)):
+                # Grant experience/courage for hitting environment
+                shooter = p.owner
+                if shooter:
+                    shooter.add_experience(const.EXPERIENCE_HIT_ROCK)
+                    shooter.add_courage(const.COURAGE_HIT_ENVIRONMENT)
+                    debug_print(f"{'Player' if shooter.is_player else 'Enemy'} gained {const.EXPERIENCE_HIT_ROCK} XP and {const.COURAGE_HIT_ENVIRONMENT} courage for hitting asteroid")
+                
+                # Object was hit, remove projectile
                 self.projectiles.remove(p)
             # Check for hit on enemy
-            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:  # Fixed critical parenthesis bug
+            elif int(p.x) == self.enemy.x and int(p.y) == self.enemy.y:
                 self.enemy.health -= const.PROJECTILE_DAMAGE
+                
+                # Grant experience/courage for damaging player
+                shooter = p.owner
+                if shooter and shooter.is_player:
+                    shooter.add_experience(const.EXPERIENCE_DAMAGE_PLAYER)
+                    debug_print(f"Player gained {const.EXPERIENCE_DAMAGE_PLAYER} XP for damaging enemy")
+                    
+                # Remove projectile after hit
                 self.projectiles.remove(p)
                 
                 # Check if enemy is defeated - ensure health is not negative
                 if self.enemy.health <= 0:
                     self.enemy.health = 0  # Clamp health to zero
+                    
+                    # Grant additional experience/courage for killing
+                    if shooter and shooter.is_player:
+                        shooter.add_experience(const.EXPERIENCE_KILL_PLAYER)
+                        shooter.add_courage(const.COURAGE_KILL_PLAYER)
+                        debug_print(f"Player gained {const.EXPERIENCE_KILL_PLAYER} XP and {const.COURAGE_KILL_PLAYER} courage for killing enemy")
+                    
                     self._end_game("Player")
             # Check for hit on player
             elif int(p.x) == self.player.x and int(p.y) == self.player.y:
                 self.player.health -= const.PROJECTILE_DAMAGE
+                
+                # Grant experience/courage for damaging player
+                shooter = p.owner
+                if shooter and not shooter.is_player:
+                    shooter.add_experience(const.EXPERIENCE_DAMAGE_PLAYER)
+                    debug_print(f"Enemy gained {const.EXPERIENCE_DAMAGE_PLAYER} XP for damaging player")
+                
+                # Remove projectile after hit
                 self.projectiles.remove(p)
                 
                 # Check if player is defeated - ensure health is not negative
                 if self.player.health <= 0:
                     self.player.health = 0  # Clamp health to zero
+                    
+                    # Grant additional experience/courage for killing
+                    if shooter and not shooter.is_player:
+                        shooter.add_experience(const.EXPERIENCE_KILL_PLAYER)
+                        shooter.add_courage(const.COURAGE_KILL_PLAYER)
+                        debug_print(f"Enemy gained {const.EXPERIENCE_KILL_PLAYER} XP and {const.COURAGE_KILL_PLAYER} courage for killing player")
+                    
                     self._end_game("AI")
 
     def enemy_turn(self):
@@ -670,8 +713,10 @@ class GameManager:
         # 1. Game header with turn and moves/shots
         self.ui.draw_game_header(self.player, self.player_turn)
         
-        # 2. Player stats panel at the bottom
-        self.ui.draw_player_stats_panel(self.player)
+        # 2. Player stats panel at the bottom - get the courage button rect
+        courage_button_rect = self.ui.draw_player_stats_panel(self.player)
+        # Store the courage button rect for click detection
+        self.courage_button_rect = courage_button_rect
         
         # Draw instructions (only if toggled on)
         self.ui.draw_instructions()
@@ -707,6 +752,11 @@ class GameManager:
                     debug_print(f"Post-enemy delay complete. Starting round transition to Round {self.round_number}")
             else:
                 self.enemy_turn()
+                
+        # Update courage from proximity - check once per second
+        if self.player and self.enemy:
+            self.player.check_proximity_courage(self.enemy)
+            self.enemy.check_proximity_courage(self.player)
 
 
 def main():

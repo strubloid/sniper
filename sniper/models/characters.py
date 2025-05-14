@@ -33,6 +33,14 @@ class Character:
         self.moves_left = 0
         self.is_player = is_player
         self.show_range = False
+        
+        # Experience system
+        self.experience = 0
+        self.level = 1
+        
+        # Courage system
+        self.courage = 0  # Start with 0 courage
+        self.last_proximity_time = 0  # Track when courage was last gained from proximity
     
     def start_turn(self):
         """Reset character for a new turn."""
@@ -81,3 +89,44 @@ class Character:
                             highlight_surface.get_rect()
                         )
                         surface.blit(highlight_surface, highlight_rect)
+    
+    def add_experience(self, amount: int) -> bool:
+        """
+        Add experience to the character and return True if leveled up.
+        """
+        self.experience += amount
+        # Simple level calculation: 100 XP per level
+        new_level = 1 + self.experience // 100
+        leveled_up = new_level > self.level
+        self.level = new_level
+        return leveled_up
+    
+    def add_courage(self, amount: int) -> None:
+        """
+        Add courage points to the character, capped at COURAGE_MAX.
+        """
+        self.courage = min(const.COURAGE_MAX, self.courage + amount)
+    
+    def use_courage_ability(self) -> bool:
+        """
+        Use courage points for a special ability.
+        Returns True if the ability was used successfully.
+        """
+        if self.courage >= const.COURAGE_BUTTON_COST:
+            self.courage -= const.COURAGE_BUTTON_COST
+            self.shots_left += 1  # Grant an extra shot
+            return True
+        return False
+    
+    def check_proximity_courage(self, other_character) -> None:
+        """
+        Check if character is in proximity to another character and grant courage if so.
+        This should be called once per second or at an appropriate interval.
+        """
+        current_time = pygame.time.get_ticks()
+        # Only check once per second
+        if current_time - self.last_proximity_time >= 1000:
+            distance = abs(self.x - other_character.x) + abs(self.y - other_character.y)
+            if distance <= const.COURAGE_PROXIMITY_RANGE:
+                self.add_courage(const.COURAGE_PROXIMITY_GAIN)
+                self.last_proximity_time = current_time

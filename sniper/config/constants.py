@@ -80,6 +80,20 @@ AI_RANDOM_FACTOR = 5          # Random variance to avoid predictability
 AI_OPTIMAL_DIST_MIN = 2       # Minimum preferred distance from player
 AI_OPTIMAL_DIST_MAX = 3       # Maximum preferred distance from player
 
+# Experience System Constants
+EXPERIENCE_HIT_ROCK = 5          # Experience for hitting a rock
+EXPERIENCE_DAMAGE_PLAYER = 15    # Experience for damaging a player
+EXPERIENCE_KILL_PLAYER = 50      # Experience for killing a player
+EXPERIENCE_DESTROY_ELEMENT = 3   # Experience for destroying environmental elements
+
+# Courage System Constants
+COURAGE_MAX = 100                # Maximum courage value
+COURAGE_PROXIMITY_GAIN = 1       # Courage gained per second when near opponent
+COURAGE_PROXIMITY_RANGE = 5      # Grid cells radius for proximity detection
+COURAGE_HIT_ENVIRONMENT = 2      # Courage for destroying environment elements
+COURAGE_KILL_PLAYER = 25         # Courage for killing a player
+COURAGE_BUTTON_COST = 20         # Courage points consumed for extra shot
+
 # Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 ASSETS_DIR = os.path.join(BASE_DIR, "assets")
